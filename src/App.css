@@ -1,0 +1,187 @@
+/* ---------- Lobby ---------- */
+.lobby {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+}
+
+.lobby__card {
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 32px;
+  width: 100%;
+  max-width: 420px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.06);
+}
+
+.lobby__card h1 {
+  margin: 0 0 4px;
+  font-size: 28px;
+  letter-spacing: -0.4px;
+}
+
+.lobby__tagline {
+  margin: 0 0 24px;
+  color: var(--text-soft);
+  font-size: 14px;
+}
+
+.lobby__label {
+  display: block;
+  font-size: 13px;
+  color: var(--text-soft);
+  margin-bottom: 16px;
+}
+
+.lobby__label input {
+  display: block;
+  width: 100%;
+  margin-top: 6px;
+}
+
+.lobby__primary {
+  width: 100%;
+  background: var(--accent);
+  color: white;
+  border-color: var(--accent);
+  font-weight: 600;
+  padding: 12px;
+}
+
+.lobby__primary:hover:not(:disabled) {
+  filter: brightness(1.05);
+}
+
+.lobby__divider {
+  text-align: center;
+  margin: 20px 0 12px;
+  color: var(--text-soft);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.lobby__joinRow {
+  display: flex;
+  gap: 8px;
+}
+
+.lobby__joinRow input {
+  flex: 1;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  font-family: ui-monospace, monospace;
+}
+
+/* ---------- Room ---------- */
+.room {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.room__status {
+  padding: 40px;
+  text-align: center;
+  color: var(--text-soft);
+}
+
+.room__header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 12px 20px;
+  background: var(--bg-elev);
+  border-bottom: 1px solid var(--border);
+}
+
+.room__title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.room__label {
+  font-size: 12px;
+  color: var(--text-soft);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.room__code {
+  background: var(--accent-soft);
+  color: var(--accent);
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-weight: 600;
+  letter-spacing: 2px;
+}
+
+.room__copy {
+  padding: 4px 10px;
+  font-size: 13px;
+}
+
+.room__players {
+  flex: 1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: center;
+}
+
+.room__player {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1.5px solid var(--border);
+  font-size: 13px;
+  background: var(--bg);
+}
+
+.room__playerDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.room__leave {
+  color: var(--danger);
+  border-color: transparent;
+  background: transparent;
+}
+
+.room__main {
+  flex: 1;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+}
+
+/* ---------- Canvas ---------- */
+.canvas {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.canvas__toolbar {
+  display: flex;
+  gap: 8px;
+}
+
+.canvas__surface {
+  background: white;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.06);
+  width: min(90vw, 900px);
+  height: auto;
+  aspect-ratio: 3 / 2;
+  touch-action: none;
+  cursor: crosshair;
+}
