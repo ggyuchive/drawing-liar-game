@@ -1,3 +1,4 @@
+import { useT } from '../i18n';
 import type { CanvasPresence, Round } from '../types';
 
 type Props = {
@@ -17,6 +18,7 @@ export default function Voting({
   onVote,
   onReveal,
 }: Props) {
+  const t = useT().voting;
   const myVote = myActorID ? round.votes[myActorID] : undefined;
   const votedCount = Object.keys(round.votes).length;
   const allIn = votedCount >= round.playerOrder.length;
@@ -27,10 +29,10 @@ export default function Voting({
 
   return (
     <div className="voting">
-      <h2 className="voting__title">Who's the liar?</h2>
+      <h2 className="voting__title">{t.title}</h2>
       <p className="voting__sub">
-        {votedCount} / {order.length} votes in
-        {myVote ? ` — you picked ${nameFor(myVote)}` : ''}
+        {t.votesIn(votedCount, order.length)}
+        {myVote ? t.youPicked(nameFor(myVote)) : ''}
       </p>
 
       <div className="voting__grid">
@@ -49,7 +51,9 @@ export default function Voting({
               onClick={() => onVote(id)}
             >
               <span className="voting__pickName">{nameFor(id)}</span>
-              {hasVoted && <span className="voting__pickCheck">voted</span>}
+              {hasVoted && (
+                <span className="voting__pickCheck">{t.voted}</span>
+              )}
             </button>
           );
         })}
@@ -61,7 +65,7 @@ export default function Voting({
           onClick={onReveal}
           disabled={!allIn}
         >
-          {allIn ? 'Reveal the accused' : 'Waiting for everyone to vote…'}
+          {allIn ? t.reveal : t.waitingForVotes}
         </button>
       )}
     </div>

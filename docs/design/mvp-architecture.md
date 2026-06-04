@@ -6,6 +6,14 @@ tags: [mvp, game-flow, yorkie, schema]
 
 # MVP Architecture — Playable Liar Drawing Game
 
+> **Note (2026-06-04, post-MVP):** the per-turn drawing rule
+> ("one continuous stroke") and the three-outcome scoring table
+> documented here are the *MVP* shape. They are superseded for
+> v1.0 by [`rules-v1.md`](rules-v1.md): brush quota with real-time
+> meter (no continuous-stroke rule), always-guess flow, and a 2×2
+> scoring table. The schema, phase machine, presence model, and
+> host concept all carry forward unchanged.
+
 ## Problem
 
 Today the room screen syncs strokes between participants but has no concept

@@ -16,7 +16,7 @@ import RoundHud from './game/RoundHud';
 import Voting from './game/Voting';
 import { applyScores, shuffle } from './game/state';
 import { useActorID } from './game/useActorID';
-import { pickKeyword } from './data/keywords';
+import { LOCALE_LIST, pickKeyword, useLocale, useT } from './i18n';
 import type { CanvasPresence, Game, GameConfig, Stroke } from './types';
 import { initialGame } from './types';
 import { randomColor } from './util';
@@ -42,6 +42,8 @@ function RoomInner({ room, onLeave }: { room: string; onLeave: () => void }) {
     CanvasPresence
   >();
   const myActorID = useActorID();
+  const t = useT();
+  const { locale, setLocaleCode } = useLocale();
   const hostId = !loading && !error ? root.game.hostId : '';
 
   useEffect(() => {
@@ -56,17 +58,17 @@ function RoomInner({ room, onLeave }: { room: string; onLeave: () => void }) {
   }, [loading, error, myActorID, hostId, update]);
 
   if (loading) {
-    return <div className="room__status">Connecting to room {room}…</div>;
+    return <div className="room__status">{t.room.connecting(room)}</div>;
   }
   if (error) {
-    return <div className="room__status">Error: {error.message}</div>;
+    return <div className="room__status">{t.room.error(error.message)}</div>;
   }
 
   return (
     <div className="room">
       <header className="room__header">
         <div className="room__title">
-          <span className="room__label">Room</span>
+          <span className="room__label">{t.room.roomLabel}</span>
           <code className="room__code">{room}</code>
           <button
             className="room__copy"
@@ -76,8 +78,20 @@ function RoomInner({ room, onLeave }: { room: string; onLeave: () => void }) {
                 .catch(() => {});
             }}
           >
-            Copy link
+            {t.common.copyLink}
           </button>
+          <select
+            className="room__lang"
+            value={locale.code}
+            onChange={(e) => setLocaleCode(e.target.value)}
+            aria-label="Language"
+          >
+            {LOCALE_LIST.map((l) => (
+              <option key={l.code} value={l.code}>
+                {l.name}
+              </option>
+            ))}
+          </select>
         </div>
         <div className="room__players">
           {presences.map(({ clientID, presence }) => (
@@ -95,7 +109,7 @@ function RoomInner({ room, onLeave }: { room: string; onLeave: () => void }) {
           ))}
         </div>
         <button className="room__leave" onClick={onLeave}>
-          Leave
+          {t.common.leave}
         </button>
       </header>
 
@@ -114,6 +128,9 @@ function RoomInner({ room, onLeave }: { room: string; onLeave: () => void }) {
         if (next.turnsPerPlayer !== undefined) {
           r.game.config.turnsPerPlayer = next.turnsPerPlayer;
         }
+        if (next.keywordLanguage !== undefined) {
+          r.game.config.keywordLanguage = next.keywordLanguage;
+        }
       });
     };
     const onStart = () => {
@@ -124,7 +141,7 @@ function RoomInner({ room, onLeave }: { room: string; onLeave: () => void }) {
       update((r) => {
         r.game.round = {
           index: 1,
-          keyword: pickKeyword(),
+          keyword: pickKeyword(r.game.config.keywordLanguage),
           liarId,
           playerOrder: order,
           turnIndex: 0,
@@ -234,7 +251,7 @@ function RoomInner({ room, onLeave }: { room: string; onLeave: () => void }) {
             const nextIndex = r.game.round.index + 1;
             r.game.round = {
               index: nextIndex,
-              keyword: pickKeyword(),
+              keyword: pickKeyword(r.game.config.keywordLanguage),
               liarId,
               playerOrder: order,
               turnIndex: 0,
@@ -339,16 +356,16 @@ function RoomInner({ room, onLeave }: { room: string; onLeave: () => void }) {
   }
 }
 
+function MissingApiKeyHint() {
+  const t = useT();
+  return <div className="room__status">{t.room.missingApiKey}</div>;
+}
+
 export default function Room({ room, name, onLeave }: Props) {
   const myColor = useMemo(() => randomColor(), []);
 
   if (!API_KEY) {
-    return (
-      <div className="room__status">
-        Missing <code>VITE_YORKIE_API_KEY</code>. Copy <code>.env.example</code>{' '}
-        to <code>.env</code> and fill in your Yorkie API key.
-      </div>
-    );
+    return <MissingApiKeyHint />;
   }
 
   return (

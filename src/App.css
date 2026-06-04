@@ -22,6 +22,32 @@
   letter-spacing: -0.4px;
 }
 
+.lobby__topRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.lobby__lang {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--text-soft);
+  align-items: flex-end;
+}
+
+.lobby__lang select {
+  font: inherit;
+  padding: 6px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+}
+
 .lobby__tagline {
   margin: 0 0 24px;
   color: var(--text-soft);
@@ -121,6 +147,16 @@
 
 .room__copy {
   padding: 4px 10px;
+  font-size: 13px;
+}
+
+.room__lang {
+  font: inherit;
+  padding: 4px 8px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
   font-size: 13px;
 }
 
@@ -227,7 +263,8 @@
   color: var(--text-soft);
 }
 
-.lobbyIn__configCell input {
+.lobbyIn__configCell input,
+.lobbyIn__configCell select {
   font: inherit;
   padding: 10px 12px;
   border-radius: 8px;

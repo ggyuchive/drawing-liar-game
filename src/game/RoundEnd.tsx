@@ -1,3 +1,4 @@
+import { useT } from '../i18n';
 import type { CanvasPresence, Game } from '../types';
 
 type Props = {
@@ -15,6 +16,7 @@ export default function RoundEnd({
   onNext,
   onFinish,
 }: Props) {
+  const t = useT().roundEnd;
   const { round, scores, config } = game;
   const nameFor = (id: string) =>
     presences.find((p) => p.clientID === id)?.presence.name ?? '???';
@@ -26,17 +28,15 @@ export default function RoundEnd({
   let outcomeText: string;
   if (round.liarGuess) {
     outcomeText = round.guessCorrect
-      ? `${liarName} was caught but guessed "${round.keyword}" — half marks all round.`
-      : `${liarName} was caught and guessed "${round.liarGuess}". The real keyword was "${round.keyword}".`;
+      ? t.outcomeCaughtRight(liarName, round.keyword)
+      : t.outcomeCaughtWrong(liarName, round.liarGuess, round.keyword);
   } else {
-    outcomeText = `The liar (${liarName}) slipped past — keyword was "${round.keyword}".`;
+    outcomeText = t.outcomeEscaped(liarName, round.keyword);
   }
 
   return (
     <div className="roundEnd">
-      <h2 className="roundEnd__title">
-        Round {round.index} / {config.totalRounds}
-      </h2>
+      <h2 className="roundEnd__title">{t.title(round.index, config.totalRounds)}</h2>
       <p className="roundEnd__outcome">{outcomeText}</p>
 
       <ul className="roundEnd__scoreboard">
@@ -52,18 +52,16 @@ export default function RoundEnd({
       {isHost ? (
         lastRound ? (
           <button className="roundEnd__primary" onClick={onFinish}>
-            See final ranking
+            {t.seeFinal}
           </button>
         ) : (
           <button className="roundEnd__primary" onClick={onNext}>
-            Next round
+            {t.nextRound}
           </button>
         )
       ) : (
         <p className="roundEnd__waiting">
-          {lastRound
-            ? 'Waiting for host to wrap up…'
-            : 'Waiting for host to start the next round…'}
+          {lastRound ? t.waitingWrap : t.waitingNext}
         </p>
       )}
     </div>

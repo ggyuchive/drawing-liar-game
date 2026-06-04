@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useT } from '../i18n';
 import type { CanvasPresence, Round } from '../types';
 import { normalizeGuess } from './state';
 
@@ -15,6 +16,7 @@ export default function Guessing({
   presences,
   onSubmit,
 }: Props) {
+  const t = useT().guessing;
   const [guess, setGuess] = useState('');
   const isLiar = !!myActorID && myActorID === round.liarId;
   const liarName =
@@ -30,26 +32,22 @@ export default function Guessing({
   if (!isLiar) {
     return (
       <div className="guessing">
-        <h2 className="guessing__title">{liarName} is guessing…</h2>
-        <p className="guessing__sub">
-          The liar gets one shot at the keyword to steal the round back.
-        </p>
+        <h2 className="guessing__title">{t.othersTitle(liarName)}</h2>
+        <p className="guessing__sub">{t.othersSub}</p>
       </div>
     );
   }
 
   return (
     <div className="guessing">
-      <h2 className="guessing__title">You were caught — guess the keyword</h2>
-      <p className="guessing__sub">
-        One try. Get it right and you steal the round.
-      </p>
+      <h2 className="guessing__title">{t.selfTitle}</h2>
+      <p className="guessing__sub">{t.selfSub}</p>
       <div className="guessing__row">
         <input
           type="text"
           value={guess}
           onChange={(e) => setGuess(e.target.value)}
-          placeholder="e.g. lighthouse"
+          placeholder={t.placeholder}
           onKeyDown={(e) => e.key === 'Enter' && handleSubmit()}
           autoFocus
         />
@@ -58,7 +56,7 @@ export default function Guessing({
           onClick={handleSubmit}
           disabled={!guess.trim()}
         >
-          Submit guess
+          {t.submit}
         </button>
       </div>
     </div>

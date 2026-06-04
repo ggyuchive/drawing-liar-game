@@ -6,6 +6,12 @@ New design documents should be based on [TEMPLATE.md](TEMPLATE.md).
 
 - [MVP Architecture](mvp-architecture.md): Yorkie document schema, game phase
   state machine, and presence model for a playable liar drawing game.
+- [Roadmap](roadmap.md): Phases from scaffold to v1.0 release. The
+  navigation doc for "what's next, in what order, and when are we done?"
+- [Rules v1.0](rules-v1.md): Gameplay rule changes shipping with v1.0
+  — brush quota with real-time meter, room chat, always-guess flow,
+  finalised 2×2 (caught × guessed) scoring, explicit no-undo rule.
+  Read before executing the quality-pass plan.
 
 ## Guidelines
 

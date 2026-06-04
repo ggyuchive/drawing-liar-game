@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { LOCALE_LIST, useLocale, useT } from './i18n';
 import { generateRoomCode, normalizeRoomCode } from './util';
 
 type Props = {
@@ -8,6 +9,8 @@ type Props = {
 };
 
 export default function Lobby({ initialName, initialRoom, onEnter }: Props) {
+  const t = useT().joinLobby;
+  const { locale, setLocaleCode } = useLocale();
   const [name, setName] = useState(initialName);
   const [room, setRoom] = useState(initialRoom);
   const trimmedName = name.trim();
@@ -26,18 +29,31 @@ export default function Lobby({ initialName, initialRoom, onEnter }: Props) {
   return (
     <div className="lobby">
       <div className="lobby__card">
-        <h1>drawing-liar-game</h1>
-        <p className="lobby__tagline">
-          A liar drawing game on a shared canvas.
-        </p>
+        <div className="lobby__topRow">
+          <h1>Drawing Liar Game</h1>
+          <label className="lobby__lang">
+            <span className="lobby__langLabel">{t.languageLabel}</span>
+            <select
+              value={locale.code}
+              onChange={(e) => setLocaleCode(e.target.value)}
+            >
+              {LOCALE_LIST.map((l) => (
+                <option key={l.code} value={l.code}>
+                  {l.name}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+        <p className="lobby__tagline">{t.tagline}</p>
 
         <label className="lobby__label">
-          Your name
+          {t.yourName}
           <input
             type="text"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder="e.g. doodler"
+            placeholder={t.namePlaceholder}
             maxLength={20}
             autoFocus
           />
@@ -48,22 +64,22 @@ export default function Lobby({ initialName, initialRoom, onEnter }: Props) {
           onClick={handleCreate}
           disabled={!trimmedName}
         >
-          Create a new game
+          {t.createGame}
         </button>
 
-        <div className="lobby__divider">or join with a code</div>
+        <div className="lobby__divider">{t.orJoinWithCode}</div>
 
         <div className="lobby__joinRow">
           <input
             type="text"
             value={room}
             onChange={(e) => setRoom(e.target.value.toUpperCase())}
-            placeholder="ROOM CODE"
+            placeholder={t.roomCodePlaceholder}
             maxLength={8}
             onKeyDown={(e) => e.key === 'Enter' && handleJoin()}
           />
           <button onClick={handleJoin} disabled={!trimmedName || !room.trim()}>
-            Join
+            {t.join}
           </button>
         </div>
       </div>

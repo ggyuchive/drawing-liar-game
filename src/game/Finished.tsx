@@ -1,3 +1,4 @@
+import { useT } from '../i18n';
 import type { CanvasPresence, Game } from '../types';
 
 type Props = {
@@ -13,6 +14,7 @@ export default function Finished({
   presences,
   onPlayAgain,
 }: Props) {
+  const t = useT().finished;
   const nameFor = (id: string) =>
     presences.find((p) => p.clientID === id)?.presence.name ?? '???';
   const ranked = Object.entries(game.scores).sort((a, b) => b[1] - a[1]);
@@ -20,11 +22,8 @@ export default function Finished({
 
   return (
     <div className="finished">
-      <h2 className="finished__title">Final ranking</h2>
-      <p className="finished__sub">
-        {game.config.totalRounds} round{game.config.totalRounds === 1 ? '' : 's'}
-        {' '}played
-      </p>
+      <h2 className="finished__title">{t.title}</h2>
+      <p className="finished__sub">{t.sub(game.config.totalRounds)}</p>
 
       <ul className="finished__board">
         {ranked.map(([id, score], idx) => {
@@ -51,10 +50,10 @@ export default function Finished({
 
       {isHost ? (
         <button className="finished__primary" onClick={onPlayAgain}>
-          Play again
+          {t.playAgain}
         </button>
       ) : (
-        <p className="finished__waiting">Waiting for host to start a new game…</p>
+        <p className="finished__waiting">{t.waiting}</p>
       )}
     </div>
   );

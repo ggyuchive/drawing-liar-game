@@ -1,3 +1,4 @@
+import { useT } from '../i18n';
 import type { CanvasPresence, GameConfig, Round } from '../types';
 
 type Props = {
@@ -13,6 +14,7 @@ export default function RoundHud({
   myActorID,
   presences,
 }: Props) {
+  const t = useT().hud;
   const isLiar = !!myActorID && myActorID === round.liarId;
   const drawerId =
     round.playerOrder[round.turnIndex % round.playerOrder.length] ?? '';
@@ -26,22 +28,22 @@ export default function RoundHud({
       <div className="hud__cell hud__cell--keyword">
         {isLiar ? (
           <>
-            <span className="hud__label">Your role</span>
-            <strong className="hud__liar">You are the liar — bluff!</strong>
+            <span className="hud__label">{t.yourRole}</span>
+            <strong className="hud__liar">{t.youAreLiar}</strong>
           </>
         ) : (
           <>
-            <span className="hud__label">Keyword</span>
+            <span className="hud__label">{t.keyword}</span>
             <strong className="hud__keyword">{round.keyword}</strong>
           </>
         )}
       </div>
       <div className="hud__cell">
-        <span className="hud__label">Drawer</span>
+        <span className="hud__label">{t.drawer}</span>
         <strong>{drawerName}</strong>
       </div>
       <div className="hud__cell">
-        <span className="hud__label">Turn</span>
+        <span className="hud__label">{t.turn}</span>
         <strong>
           {turnNumber} / {total}
         </strong>

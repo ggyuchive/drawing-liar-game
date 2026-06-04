@@ -1,3 +1,4 @@
+import { LOCALE_LIST, useT } from '../i18n';
 import type { GameConfig, CanvasPresence } from '../types';
 
 const MIN_PLAYERS = 3;
@@ -17,11 +18,12 @@ export default function InRoomLobby({
   onConfigChange,
   onStart,
 }: Props) {
+  const t = useT().inRoomLobby;
   const ready = presences.length >= MIN_PLAYERS;
 
   return (
     <div className="lobbyIn">
-      <h2 className="lobbyIn__title">Waiting room</h2>
+      <h2 className="lobbyIn__title">{t.title}</h2>
 
       <ul className="lobbyIn__roster">
         {presences.map(({ clientID, presence }) => (
@@ -43,7 +45,7 @@ export default function InRoomLobby({
         <div className="lobbyIn__hostBox">
           <div className="lobbyIn__configRow">
             <label className="lobbyIn__configCell">
-              Rounds
+              {t.rounds}
               <input
                 type="number"
                 min={1}
@@ -57,7 +59,7 @@ export default function InRoomLobby({
               />
             </label>
             <label className="lobbyIn__configCell">
-              Turns per player
+              {t.turnsPerPlayer}
               <input
                 type="number"
                 min={1}
@@ -71,20 +73,33 @@ export default function InRoomLobby({
               />
             </label>
           </div>
+          <label className="lobbyIn__configCell">
+            {t.keywordLanguage}
+            <select
+              value={config.keywordLanguage}
+              onChange={(e) =>
+                onConfigChange({ keywordLanguage: e.target.value })
+              }
+            >
+              {LOCALE_LIST.map((l) => (
+                <option key={l.code} value={l.code}>
+                  {l.name}
+                </option>
+              ))}
+            </select>
+          </label>
           <button
             className="lobbyIn__start"
             onClick={onStart}
             disabled={!ready}
           >
             {ready
-              ? 'Start game'
-              : `Need ${MIN_PLAYERS - presences.length} more player${
-                  MIN_PLAYERS - presences.length === 1 ? '' : 's'
-                }`}
+              ? t.startGame
+              : t.needMorePlayers(MIN_PLAYERS - presences.length)}
           </button>
         </div>
       ) : (
-        <p className="lobbyIn__waiting">Waiting for host to start…</p>
+        <p className="lobbyIn__waiting">{t.waiting}</p>
       )}
     </div>
   );

@@ -32,7 +32,14 @@ reflected on," even when the reflection is empty.
 
 ## Active
 
-_None._
+- [20260604-quality-pass-todo.md](active/20260604-quality-pass-todo.md) —
+  Phase 3 of the [roadmap](../design/roadmap.md): drawing tools,
+  keyword decks, mobile layout, reactions. Plays to "friends play this
+  on a Friday night without complaints."
+- [20260604-v1-release-todo.md](active/20260604-v1-release-todo.md) —
+  Phases 4 + 5: host resilience, reconnection feedback, perf, a11y,
+  CI, deployment, project hygiene, beta, v1.0 cut.
+  Pairs (on archive) with `../lessons/20260604-v1-release.md`.
 
 ## Archive
 

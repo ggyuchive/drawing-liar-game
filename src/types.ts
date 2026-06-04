@@ -19,6 +19,7 @@ export type Phase =
 export type GameConfig = {
   totalRounds: number;
   turnsPerPlayer: number;
+  keywordLanguage: string;
 };
 
 export type Round = {
@@ -68,7 +69,7 @@ export const emptyRound = (): Round => ({
 export const initialGame = (): Game => ({
   phase: 'lobby',
   hostId: '',
-  config: { totalRounds: 3, turnsPerPlayer: 2 },
+  config: { totalRounds: 3, turnsPerPlayer: 2, keywordLanguage: 'en' },
   round: emptyRound(),
   scores: {},
 });

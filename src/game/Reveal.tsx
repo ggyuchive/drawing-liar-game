@@ -1,3 +1,4 @@
+import { useT } from '../i18n';
 import type { CanvasPresence, Round } from '../types';
 import { tallyVotes } from './state';
 
@@ -14,6 +15,7 @@ export default function Reveal({
   presences,
   onContinue,
 }: Props) {
+  const t = useT().reveal;
   const { accusedId, counts } = tallyVotes(round.votes);
   const nameFor = (id: string) =>
     presences.find((p) => p.clientID === id)?.presence.name ?? '???';
@@ -23,7 +25,7 @@ export default function Reveal({
 
   return (
     <div className="reveal">
-      <h2 className="reveal__title">The votes are in</h2>
+      <h2 className="reveal__title">{t.title}</h2>
 
       <ul className="reveal__bars">
         {round.playerOrder.map((id) => {
@@ -50,9 +52,9 @@ export default function Reveal({
       </ul>
 
       <p className="reveal__verdict">
-        Accused: <strong>{nameFor(accusedId)}</strong>
+        {t.accusedLabel}: <strong>{nameFor(accusedId)}</strong>
         {' — '}
-        {wasLiarCaught ? 'the liar!' : 'not the liar.'}
+        {wasLiarCaught ? t.theLiar : t.notTheLiar}
       </p>
 
       {isHost && (
@@ -60,7 +62,7 @@ export default function Reveal({
           className="reveal__continue"
           onClick={() => onContinue(accusedId, wasLiarCaught)}
         >
-          {wasLiarCaught ? 'Give the liar a chance to guess' : 'Continue'}
+          {wasLiarCaught ? t.giveGuess : t.continueAction}
         </button>
       )}
     </div>
