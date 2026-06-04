@@ -32,11 +32,7 @@ reflected on," even when the reflection is empty.
 
 ## Active
 
-- [20260604-mvp-game-flow-todo.md](active/20260604-mvp-game-flow-todo.md) —
-  Step-by-step plan to reach a playable MVP (lobby → game start → turns
-  → voting → reveal → scoring → next round → final ranking).
-  Pairs with [`../lessons/20260604-mvp-game-flow.md`](../lessons/) —
-  added when this plan is archived.
+_None._
 
 ## Archive
 
@@ -44,3 +40,7 @@ reflected on," even when the reflection is empty.
   Retrospective record of the initial scaffold (Vite + React + TS,
   Yorkie wiring, lobby + canvas, CLAUDE.md and docs/).
   Pairs with [`../lessons/20260604-scaffold.md`](../lessons/20260604-scaffold.md).
+- [20260604-mvp-game-flow-todo.md](archive/20260604-mvp-game-flow-todo.md) —
+  12-task path from "shared whiteboard" to a fully playable MVP
+  (lobby → drawing → voting → reveal → guessing → scoring → ranking).
+  Pairs with [`../lessons/20260604-mvp-game-flow.md`](../lessons/20260604-mvp-game-flow.md).

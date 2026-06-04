@@ -9,12 +9,14 @@ guess the keyword.
 
 ## Status
 
-Early scaffold. What works today:
+MVP playable end-to-end. What works today:
 
-- A lobby where one player creates a game (gets a 6-char room code) and others join with that code.
-- A shared whiteboard inside the room that syncs strokes between all participants in real time via Yorkie.
+- Join lobby with a 6-char room code (also embedded in the URL hash, so the URL is the share link).
+- In-room waiting screen with host config (rounds, turns per player). Start button gates on 3+ players.
+- Round flow: keyword + liar assignment → turn-by-turn drawing (one continuous stroke per turn) → voting → reveal → optional liar guess → scoring.
+- Multiple rounds with running scoreboard, final ranking, "Play again" to reset within the same room.
 
-Game rules, turn rotation, voting, and scoring will be layered in next.
+Out of scope for MVP and intentionally not built: host auto-promotion on disconnect, server-side keyword secrecy, drawing-tool palette, mobile-specific layout.
 
 ## Setup
 

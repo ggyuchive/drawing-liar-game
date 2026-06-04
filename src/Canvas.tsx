@@ -1,26 +1,34 @@
 import { useEffect, useRef } from 'react';
 import { useDocument, type JSONArray, type JSONObject } from '@yorkie-js/react';
-import type { CanvasPresence, Point, Stroke } from './types';
+import type { CanvasPresence, Game, Point, Stroke } from './types';
 import { generateId } from './util';
 
 type DocRoot = {
+  game: JSONObject<Game>;
   strokes: JSONArray<JSONObject<Stroke>>;
 };
 
 const CANVAS_WIDTH = 900;
 const CANVAS_HEIGHT = 600;
-const POINT_THRESHOLD_SQ = 4; // skip points within 2px to keep payload small
+const POINT_THRESHOLD_SQ = 4;
 
 type Props = {
   strokes: JSONArray<JSONObject<Stroke>>;
+  isMyTurn: boolean;
+  drawerName: string;
+  onStrokeEnd: () => void;
 };
 
-export default function Canvas({ strokes }: Props) {
+export default function Canvas({
+  strokes,
+  isMyTurn,
+  drawerName,
+  onStrokeEnd,
+}: Props) {
   const { update } = useDocument<DocRoot, CanvasPresence>();
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const drawingRef = useRef<{ id: string; last: Point } | null>(null);
 
-  // Redraw whenever the strokes array changes.
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -44,7 +52,6 @@ export default function Canvas({ strokes }: Props) {
         ctx.lineTo(points[i].x, points[i].y);
       }
       if (points.length === 1) {
-        // dot
         ctx.arc(first.x, first.y, stroke.size / 2, 0, Math.PI * 2);
         ctx.fillStyle = stroke.color;
         ctx.fill();
@@ -66,6 +73,8 @@ export default function Canvas({ strokes }: Props) {
   };
 
   const handlePointerDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    if (!isMyTurn) return;
+    if (drawingRef.current) return;
     e.currentTarget.setPointerCapture(e.pointerId);
     const point = getCanvasPoint(e);
     const id = generateId();
@@ -102,30 +111,30 @@ export default function Canvas({ strokes }: Props) {
   };
 
   const handlePointerUp = (e: React.PointerEvent<HTMLCanvasElement>) => {
-    if (drawingRef.current) {
-      e.currentTarget.releasePointerCapture(e.pointerId);
-      drawingRef.current = null;
-    }
-  };
-
-  const handleClear = () => {
-    update((root) => {
-      while (root.strokes.length > 0) {
-        root.strokes.delete?.(0);
-      }
-    });
+    if (!drawingRef.current) return;
+    e.currentTarget.releasePointerCapture(e.pointerId);
+    drawingRef.current = null;
+    onStrokeEnd();
   };
 
   return (
     <div className="canvas">
-      <div className="canvas__toolbar">
-        <button onClick={handleClear}>Clear board</button>
+      <div className="canvas__hud">
+        {isMyTurn ? (
+          <span className="canvas__hudMine">Your turn — one stroke.</span>
+        ) : (
+          <span className="canvas__hudWait">
+            {drawerName ? `${drawerName} is drawing…` : 'Waiting…'}
+          </span>
+        )}
       </div>
       <canvas
         ref={canvasRef}
         width={CANVAS_WIDTH}
         height={CANVAS_HEIGHT}
-        className="canvas__surface"
+        className={
+          isMyTurn ? 'canvas__surface' : 'canvas__surface canvas__surface--off'
+        }
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}

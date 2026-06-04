@@ -73,3 +73,8 @@ Inside, each lesson is a `### Heading` followed by:
 - [20260604-scaffold.md](20260604-scaffold.md) — Things learned while
   bootstrapping the project: SDK package naming, env requirements,
   canvas redraw model, touch input on the canvas.
+- [20260604-mvp-game-flow.md](20260604-mvp-game-flow.md) — Lessons
+  from executing the MVP plan: `Document.getActorID` not where you'd
+  expect, when CRDT proxy casts are unavoidable, why `turnIndex`
+  alone can't end a round, why scoring writes belong in the phase
+  transition not in an effect.
