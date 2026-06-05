@@ -3,11 +3,15 @@ export type LocaleUI = {
     copyCode: string;
     copied: string;
     leave: string;
+    time: string;
   };
   howTo: {
     openLabel: string;
     title: string;
     steps: ReadonlyArray<string>;
+    scoringTitle: string;
+    scoringCols: readonly [string, string, string];
+    scoringRows: ReadonlyArray<readonly [string, string, string]>;
     close: string;
   };
   joinLobby: {
@@ -38,6 +42,9 @@ export type LocaleUI = {
     attachFailed: string;
     backToLobby: string;
     nameTaken: (name: string) => string;
+    playerLeft: (name: string) => string;
+    pausedTitle: string;
+    pausedSub: string;
   };
   spectator: {
     banner: string;
@@ -50,9 +57,6 @@ export type LocaleUI = {
     waiting: string;
     brushLabel: string;
     timerLabel: string;
-    clearBoard: string;
-    clearConfirm: string;
-    clearCancel: string;
   };
   chat: {
     title: string;
@@ -63,6 +67,8 @@ export type LocaleUI = {
     typingMany: (n: number) => string;
     show: string;
     hide: string;
+    dockSide: string;
+    dockBottom: string;
   };
   hud: {
     yourRole: string;
@@ -76,14 +82,13 @@ export type LocaleUI = {
     votesIn: (n: number, m: number) => string;
     youPicked: (name: string) => string;
     voted: string;
-    reveal: string;
-    waitingForVotes: string;
   };
   reveal: {
     title: string;
     accusedLabel: string;
     theLiar: string;
     notTheLiar: string;
+    tie: string;
     continueAction: string;
   };
   guessing: {
@@ -93,6 +98,7 @@ export type LocaleUI = {
     selfSub: string;
     submit: string;
     placeholder: string;
+    answerIn: (language: string) => string;
   };
   roundEnd: {
     title: (n: number, total: number) => string;

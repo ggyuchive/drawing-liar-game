@@ -19,11 +19,14 @@ the current frontend-only / trust-the-client model.
 The current model trusts every client. These close the holes that a
 curious or malicious player can exploit.
 
-- **Server-side keyword secrecy** — *L, needs backend.* A small
-  service holds the round's keyword and serves it only to non-liars,
-  so it can't be read from the Yorkie document. This is the single
-  biggest integrity gap: today any joiner can read
-  `root.game.round.keyword`. Likely unlocks the rest of Tier 1.
+- **Server-side keyword secrecy** — *L, needs backend.* **← chosen as
+  the next direction.** A small service holds the round's keyword *and*
+  liar assignment and serves each client only its own role, so neither
+  can be read from the Yorkie document. The single biggest integrity
+  gap (today any joiner can read `root.game.round.keyword`). Designed
+  in [`design/keyword-secrecy.md`](../../design/keyword-secrecy.md);
+  execution plan
+  [`keyword-secrecy-todo.md`](20260605-keyword-secrecy-todo.md).
 - **Private / lockable rooms** — *M (best-effort) / L (true).*
   Host "lock" that refuses to seat new joiners is best-effort on the
   client (anyone can still attach to the doc). True enforcement needs

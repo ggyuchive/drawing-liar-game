@@ -1,27 +1,20 @@
 import { useT } from '../i18n';
+import { VOTE_TIME_MS } from '../types';
 import type { CanvasPresence, Round } from '../types';
+import PhaseTimer from './PhaseTimer';
 
 type Props = {
   round: Round;
   myActorID: string | null;
-  isHost: boolean;
   presences: Array<{ clientID: string; presence: CanvasPresence }>;
   onVote: (suspectId: string) => void;
-  onReveal: () => void;
 };
 
-export default function Voting({
-  round,
-  myActorID,
-  isHost,
-  presences,
-  onVote,
-  onReveal,
-}: Props) {
-  const t = useT().voting;
+export default function Voting({ round, myActorID, presences, onVote }: Props) {
+  const ui = useT();
+  const t = ui.voting;
   const myVote = myActorID ? round.votes[myActorID] : undefined;
   const votedCount = Object.keys(round.votes).length;
-  const allIn = votedCount >= round.playerOrder.length;
 
   const order = round.playerOrder;
   const nameFor = (id: string) =>
@@ -29,7 +22,14 @@ export default function Voting({
 
   return (
     <div className="voting">
-      <h2 className="voting__title">{t.title}</h2>
+      <div className="voting__head">
+        <h2 className="voting__title">{t.title}</h2>
+        <PhaseTimer
+          durationMs={VOTE_TIME_MS}
+          resetKey={round.index}
+          label={ui.common.time}
+        />
+      </div>
       <p className="voting__sub">
         {t.votesIn(votedCount, order.length)}
         {myVote ? t.youPicked(nameFor(myVote)) : ''}
@@ -51,23 +51,11 @@ export default function Voting({
               onClick={() => onVote(id)}
             >
               <span className="voting__pickName">{nameFor(id)}</span>
-              {hasVoted && (
-                <span className="voting__pickCheck">{t.voted}</span>
-              )}
+              {hasVoted && <span className="voting__pickCheck">{t.voted}</span>}
             </button>
           );
         })}
       </div>
-
-      {isHost && (
-        <button
-          className="voting__reveal"
-          onClick={onReveal}
-          disabled={!allIn}
-        >
-          {allIn ? t.reveal : t.waitingForVotes}
-        </button>
-      )}
     </div>
   );
 }

@@ -40,6 +40,10 @@ This repo plans non-trivial work up front and reflects on it after:
 Before starting, skim the active tasks and relevant lessons. Small
 fixes don't need a plan; new features generally do.
 
+**Looking for something to work on?**
+[`docs/tasks/README.md`](docs/tasks/README.md) is the map of open work,
+with a "good first contributions" list and how to claim a task.
+
 ## Commit messages
 
 The full rules live in [`CLAUDE.md`](CLAUDE.md). In short:

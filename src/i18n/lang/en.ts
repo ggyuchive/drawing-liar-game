@@ -38,6 +38,7 @@ const en: Locale = {
       copyCode: 'Copy code',
       copied: 'Copied!',
       leave: 'Leave',
+      time: 'Time',
     },
     howTo: {
       openLabel: 'How to play',
@@ -50,6 +51,14 @@ const en: Locale = {
         'The accused is revealed, then the liar takes one guess at the keyword.',
         'Scores reward the room for catching the liar, and the liar for bluffing and for actually guessing the word. Highest score after the last round wins.',
         'Click a player on the side to highlight only their strokes — handy for spotting the liar.',
+      ],
+      scoringTitle: 'Scoring',
+      scoringCols: ['Outcome', 'Liar', 'Everyone else'],
+      scoringRows: [
+        ['Caught + guessed the word', '+1', '+1'],
+        ['Caught + guessed wrong', '0', '+2'],
+        ['Escaped + guessed the word', '+3', '0'],
+        ['Escaped + guessed wrong', '+2', '+1'],
       ],
       close: 'Got it',
     },
@@ -85,6 +94,9 @@ const en: Locale = {
       backToLobby: 'Back to lobby',
       nameTaken: (name) =>
         `The name "${name}" is already taken in this room. Pick another.`,
+      playerLeft: (name) => `${name} left the room.`,
+      pausedTitle: 'Paused',
+      pausedSub: 'Need at least 3 players. Waiting for people to (re)join…',
     },
     spectator: {
       banner: 'Spectating — you join the action next round.',
@@ -97,9 +109,6 @@ const en: Locale = {
       waiting: 'Waiting…',
       brushLabel: 'Brush',
       timerLabel: 'Turn',
-      clearBoard: 'Clear board',
-      clearConfirm: 'Clear it?',
-      clearCancel: 'Cancel',
     },
     chat: {
       title: 'Chat',
@@ -110,6 +119,8 @@ const en: Locale = {
       typingMany: (n) => `${n} people are typing…`,
       show: 'Show chat',
       hide: 'Hide chat',
+      dockSide: 'Chat →',
+      dockBottom: 'Chat ↓',
     },
     hud: {
       yourRole: 'Your role',
@@ -123,14 +134,13 @@ const en: Locale = {
       votesIn: (n, m) => `${n} / ${m} votes in`,
       youPicked: (name) => ` — you picked ${name}`,
       voted: 'voted',
-      reveal: 'Reveal the accused',
-      waitingForVotes: 'Waiting for everyone to vote…',
     },
     reveal: {
       title: 'The votes are in',
       accusedLabel: 'Accused',
       theLiar: 'the liar!',
       notTheLiar: 'not the liar.',
+      tie: "It's a tie — no one was decisively accused, so the liar slips by.",
       continueAction: 'Continue',
     },
     guessing: {
@@ -140,6 +150,7 @@ const en: Locale = {
       selfSub: 'One try. Nail it and you steal points back.',
       submit: 'Submit guess',
       placeholder: 'e.g. lighthouse',
+      answerIn: (language) => `Type your answer in ${language}.`,
     },
     roundEnd: {
       title: (n, total) => `Round ${n} / ${total}`,

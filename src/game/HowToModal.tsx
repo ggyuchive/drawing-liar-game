@@ -31,6 +31,27 @@ export default function HowToModal({ onClose }: Props) {
             <li key={i}>{step}</li>
           ))}
         </ol>
+
+        <h3 className="howto__subtitle">{t.scoringTitle}</h3>
+        <table className="howto__scoring">
+          <thead>
+            <tr>
+              {t.scoringCols.map((c) => (
+                <th key={c}>{c}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {t.scoringRows.map((row, i) => (
+              <tr key={i}>
+                <td>{row[0]}</td>
+                <td className="howto__num">{row[1]}</td>
+                <td className="howto__num">{row[2]}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+
         <button className="howto__close" onClick={onClose} autoFocus>
           {t.close}
         </button>

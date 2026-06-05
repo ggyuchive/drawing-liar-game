@@ -1,11 +1,14 @@
 import { useState } from 'react';
-import { useT } from '../i18n';
+import { LOCALE_LIST, useT } from '../i18n';
+import { GUESS_TIME_MS } from '../types';
 import type { CanvasPresence, Round } from '../types';
+import PhaseTimer from './PhaseTimer';
 import { normalizeGuess } from './state';
 
 type Props = {
   round: Round;
   myActorID: string | null;
+  keywordLanguage: string;
   presences: Array<{ clientID: string; presence: CanvasPresence }>;
   onSubmit: (guess: string, correct: boolean) => void;
 };
@@ -13,14 +16,25 @@ type Props = {
 export default function Guessing({
   round,
   myActorID,
+  keywordLanguage,
   presences,
   onSubmit,
 }: Props) {
-  const t = useT().guessing;
+  const ui = useT();
+  const t = ui.guessing;
+  const langName =
+    LOCALE_LIST.find((l) => l.code === keywordLanguage)?.name ?? keywordLanguage;
   const [guess, setGuess] = useState('');
   const isLiar = !!myActorID && myActorID === round.liarId;
   const liarName =
     presences.find((p) => p.presence.uid === round.liarId)?.presence.name ?? '???';
+  const timer = (
+    <PhaseTimer
+      durationMs={GUESS_TIME_MS}
+      resetKey={round.index}
+      label={ui.common.time}
+    />
+  );
 
   const handleSubmit = () => {
     if (!isLiar) return;
@@ -32,7 +46,10 @@ export default function Guessing({
   if (!isLiar) {
     return (
       <div className="guessing">
-        <h2 className="guessing__title">{t.othersTitle(liarName)}</h2>
+        <div className="guessing__head">
+          <h2 className="guessing__title">{t.othersTitle(liarName)}</h2>
+          {timer}
+        </div>
         <p className="guessing__sub">{t.othersSub}</p>
       </div>
     );
@@ -40,8 +57,12 @@ export default function Guessing({
 
   return (
     <div className="guessing">
-      <h2 className="guessing__title">{t.selfTitle}</h2>
+      <div className="guessing__head">
+        <h2 className="guessing__title">{t.selfTitle}</h2>
+        {timer}
+      </div>
       <p className="guessing__sub">{t.selfSub}</p>
+      <p className="guessing__lang">{t.answerIn(langName)}</p>
       <div className="guessing__row">
         <input
           type="text"

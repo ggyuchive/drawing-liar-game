@@ -76,4 +76,4 @@ convention, and how the project plans work in
 
 ## License
 
-[MIT](LICENSE).
+[MIT](LICENSE)

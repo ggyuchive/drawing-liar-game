@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import { useDocument, type JSONArray, type JSONObject } from '@yorkie-js/react';
 import { useT } from './i18n';
 import type { CanvasPresence, Game, Point, Stroke } from './types';
@@ -17,30 +17,25 @@ type Props = {
   strokes: JSONArray<JSONObject<Stroke>>;
   isMyTurn: boolean;
   drawerName: string;
-  isHost: boolean;
   myUid: string;
   myColor: string;
   highlightId?: string | null;
   onStrokeEnd: () => void;
-  onClearBoard: () => void;
 };
 
 export default function Canvas({
   strokes,
   isMyTurn,
   drawerName,
-  isHost,
   myUid,
   myColor,
   highlightId,
   onStrokeEnd,
-  onClearBoard,
 }: Props) {
   const { update } = useDocument<DocRoot, CanvasPresence>();
   const t = useT().canvas;
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const drawingRef = useRef<{ id: string; last: Point } | null>(null);
-  const [confirmClear, setConfirmClear] = useState(false);
 
   // When the turn rotates away mid-stroke (e.g. the turn timer or
   // brush quota fired the advance), drop the in-flight stroke so the
@@ -160,44 +155,14 @@ export default function Canvas({
 
   return (
     <div className="canvas">
-      <div className="canvas__bar">
-        <div className="canvas__hud">
-          {isMyTurn ? (
-            <span className="canvas__hudMine">{t.yourTurn}</span>
-          ) : (
-            <span className="canvas__hudWait">
-              {drawerName ? t.drawing(drawerName) : t.waiting}
-            </span>
-          )}
-        </div>
-        {isHost &&
-          (confirmClear ? (
-            <span className="canvas__clearConfirm">
-              {t.clearConfirm}
-              <button
-                className="canvas__clearYes"
-                onClick={() => {
-                  onClearBoard();
-                  setConfirmClear(false);
-                }}
-              >
-                {t.clearBoard}
-              </button>
-              <button
-                className="canvas__clearNo"
-                onClick={() => setConfirmClear(false)}
-              >
-                {t.clearCancel}
-              </button>
-            </span>
-          ) : (
-            <button
-              className="canvas__clear"
-              onClick={() => setConfirmClear(true)}
-            >
-              {t.clearBoard}
-            </button>
-          ))}
+      <div className="canvas__hud">
+        {isMyTurn ? (
+          <span className="canvas__hudMine">{t.yourTurn}</span>
+        ) : (
+          <span className="canvas__hudWait">
+            {drawerName ? t.drawing(drawerName) : t.waiting}
+          </span>
+        )}
       </div>
       <canvas
         ref={canvasRef}

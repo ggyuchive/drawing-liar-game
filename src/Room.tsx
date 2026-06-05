@@ -48,10 +48,13 @@ import type {
 import {
   DEFAULT_BRUSH_BUDGET_PX,
   DEFAULT_TURN_TIME_MS,
+  GUESS_TIME_MS,
+  VOTE_TIME_MS,
   initialGame,
 } from './types';
 import {
   dedupeByUid,
+  generateId,
   getSessionUid,
   PLAYER_COLORS,
   randomPlayerColor,
@@ -67,6 +70,9 @@ type DocRoot = {
   game: JSONObject<Game>;
   strokes: JSONArray<JSONObject<Stroke>>;
   chat: JSONArray<JSONObject<ChatMessage>>;
+  // uid -> display name. A durable copy so a player's name (and their
+  // profile) survives a momentary presence drop instead of showing "???".
+  roster: Record<string, string>;
 };
 
 const API_ADDR =
@@ -76,10 +82,12 @@ const API_KEY = import.meta.env.VITE_YORKIE_API_KEY ?? '';
 function RoomInner({
   room,
   myUid,
+  myName,
   onLeave,
 }: {
   room: string;
   myUid: string;
+  myName: string;
   onLeave: () => void;
 }) {
   const { root, presences, update, loading, error, connection } = useDocument<
@@ -93,9 +101,11 @@ function RoomInner({
   const t = useT();
   const { locale, setLocaleCode } = useLocale();
   const [chatOpen, setChatOpen] = useState(true);
+  const [chatPos, setChatPos] = useState<'side' | 'bottom'>('side');
   const [highlightId, setHighlightId] = useState<string | null>(null);
   const [howToOpen, setHowToOpen] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [toasts, setToasts] = useState<Array<{ id: string; text: string }>>([]);
   const ready = !loading && !error;
   const hostId = ready ? root.game.hostId : '';
   const disconnected = connection === StreamConnectionStatus.Disconnected;
@@ -133,6 +143,110 @@ function RoomInner({
       presence.set({ color: myAssignedColor });
     });
   }, [myAssignedColor, myPresenceColor, update]);
+
+  // Keep our presence alive for peers. Yorkie holds presence via a
+  // heartbeat that stalls when a tab is backgrounded/throttled — the
+  // server then reclaims the session and peers see us drop (name turns
+  // to "???"). Re-assert presence on a timer and whenever the tab
+  // regains focus or the user interacts, which is what sending a chat
+  // message already does by accident. Fully frozen background tabs
+  // still can't run JS, but we recover the instant the tab is touched.
+  useEffect(() => {
+    if (loading || error) return;
+    let last = 0;
+    const beat = () => {
+      const now = Date.now();
+      if (now - last < 3000) return; // throttle bursts (e.g. drawing)
+      last = now;
+      update((r, presence) => {
+        presence.set({ lastSeen: now });
+        // Persist my name once so peers can still resolve it (and my
+        // profile) from the document if my presence ever blips.
+        if (myActorID && r.roster[myActorID] !== myName) {
+          r.roster[myActorID] = myName;
+        }
+      });
+    };
+    beat();
+    const id = setInterval(beat, 10_000);
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') beat();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    window.addEventListener('focus', beat);
+    window.addEventListener('pointerdown', beat);
+    window.addEventListener('keydown', beat);
+    return () => {
+      clearInterval(id);
+      document.removeEventListener('visibilitychange', onVisible);
+      window.removeEventListener('focus', beat);
+      window.removeEventListener('pointerdown', beat);
+      window.removeEventListener('keydown', beat);
+    };
+  }, [loading, error, update, myActorID, myName]);
+
+  // Toast when a player leaves. Keep the latest names/fns in a ref so
+  // the detector effect only depends on *who* is present, not on
+  // every render. A short grace avoids false alarms from a brief
+  // presence blip (the keepalive usually re-asserts within it).
+  const liveUidList = ready ? presences.map((p) => p.presence.uid) : [];
+  const liveKey = [...new Set(liveUidList)].sort().join(',');
+  const leaveCtxRef = useRef<{
+    roster: Record<string, string>;
+    playerLeft: (n: string) => string;
+    myUid: string;
+  }>({ roster: {}, playerLeft: () => '', myUid: '' });
+  const prevUidsRef = useRef<Set<string>>(new Set());
+  const leaveTimersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(
+    new Map(),
+  );
+  useEffect(() => {
+    leaveCtxRef.current = {
+      roster: ready ? root.roster ?? {} : {},
+      playerLeft: t.room.playerLeft,
+      myUid: myActorID,
+    };
+  });
+  useEffect(() => {
+    if (loading || error) return;
+    const cur = new Set(liveKey ? liveKey.split(',') : []);
+    const timers = leaveTimersRef.current;
+    for (const uid of prevUidsRef.current) {
+      if (cur.has(uid) || uid === leaveCtxRef.current.myUid || timers.has(uid)) {
+        continue;
+      }
+      const name = leaveCtxRef.current.roster[uid];
+      if (!name) continue;
+      const timer = setTimeout(() => {
+        timers.delete(uid);
+        const id = generateId();
+        setToasts((ts) => [
+          ...ts,
+          { id, text: leaveCtxRef.current.playerLeft(name) },
+        ]);
+        setTimeout(
+          () => setToasts((ts) => ts.filter((x) => x.id !== id)),
+          4000,
+        );
+      }, 4000);
+      timers.set(uid, timer);
+    }
+    for (const uid of cur) {
+      const tm = timers.get(uid);
+      if (tm) {
+        clearTimeout(tm);
+        timers.delete(uid);
+      }
+    }
+    prevUidsRef.current = cur;
+  }, [liveKey, loading, error]);
+  useEffect(() => {
+    const timers = leaveTimersRef.current;
+    return () => {
+      timers.forEach((tm) => clearTimeout(tm));
+      timers.clear();
+    };
+  }, []);
 
   // Advance the drawing turn: bump strokesDone, rotate to the next
   // drawer (resetting the brush budget + timer anchor) or move to
@@ -182,12 +296,27 @@ function RoomInner({
       ? roundOrder[turnIndex % roundOrder.length] ?? ''
       : '';
   const drawerPresent = presences.some((p) => p.presence.uid === drawerId);
+
+  // Pause an in-progress game when fewer than 3 players remain present
+  // — the round can't meaningfully continue, so freeze the turn timer
+  // and show an overlay until people (re)join.
+  const livePlayerCount = roundOrder.filter((uid) =>
+    presences.some((p) => p.presence.uid === uid),
+  ).length;
+  const paused =
+    ready &&
+    phase !== 'lobby' &&
+    phase !== 'finished' &&
+    roundOrder.length > 0 &&
+    livePlayerCount <= 2;
+
   const advanceTurnRef = useRef(advanceTurn);
   const shouldAdvanceRef = useRef(false);
   useEffect(() => {
     advanceTurnRef.current = advanceTurn;
     shouldAdvanceRef.current =
       phase === 'drawing' &&
+      !paused &&
       !!myActorID &&
       (myActorID === drawerId || (!drawerPresent && myActorID === hostId));
   });
@@ -195,12 +324,100 @@ function RoomInner({
   useEffect(() => {
     if (loading || error) return;
     if (phase !== 'drawing') return;
+    if (paused) return;
     if (!turnStartedAt) return;
     const id = setTimeout(() => {
       if (shouldAdvanceRef.current) advanceTurnRef.current();
     }, turnTimeMs);
     return () => clearTimeout(id);
-  }, [loading, error, phase, turnStartedAt, turnIndex, turnTimeMs]);
+  }, [loading, error, phase, paused, turnStartedAt, turnIndex, turnTimeMs]);
+
+  const roundIndex = ready ? root.game.round.index : 0;
+
+  // Voting: the host advances to reveal when everyone present has
+  // voted, or after the 30s cap — no manual "reveal" button.
+  const votingAllIn =
+    ready &&
+    phase === 'voting' &&
+    (() => {
+      const order = root.game.round.playerOrder;
+      const votes = root.game.round.votes;
+      const present = order.filter((uid) =>
+        presences.some((p) => p.presence.uid === uid),
+      );
+      return present.length > 0 && present.every((uid) => !!votes[uid]);
+    })();
+
+  const advanceToReveal = useCallback(() => {
+    update((r) => {
+      if (r.game.phase !== 'voting') return;
+      r.game.phase = 'reveal';
+    });
+  }, [update]);
+
+  // 30s voting cap (keyed on the round, so casting a vote doesn't
+  // reset it). Host owns the write; the host always exists via the
+  // election effect.
+  useEffect(() => {
+    if (loading || error) return;
+    if (phase !== 'voting' || paused) return;
+    if (!(myActorID && myActorID === hostId)) return;
+    const id = setTimeout(() => advanceToReveal(), VOTE_TIME_MS);
+    return () => clearTimeout(id);
+  }, [loading, error, phase, paused, roundIndex, myActorID, hostId, advanceToReveal]);
+
+  // Everyone voted → reveal early.
+  useEffect(() => {
+    if (loading || error) return;
+    if (!votingAllIn || paused) return;
+    if (!(myActorID && myActorID === hostId)) return;
+    advanceToReveal();
+  }, [loading, error, votingAllIn, paused, myActorID, hostId, advanceToReveal]);
+
+  // Guessing: if the liar doesn't submit within 30s, auto-resolve with
+  // no answer (wrong). The liar owns the write; the host covers a
+  // liar who has left. Gate kept in a ref so presence churn doesn't
+  // reset the countdown.
+  const submitGuessTimeout = useCallback(() => {
+    update((r) => {
+      if (r.game.phase !== 'guessing') return;
+      const { accusedId, tied } = tallyVotes(r.game.round.votes);
+      // A tie = no single clear accusation, so the liar escapes.
+      const caught = !tied && accusedId === r.game.round.liarId;
+      r.game.round.liarGuess = '';
+      r.game.round.guessCorrect = false;
+      r.game.round.wasCaught = caught;
+      r.game.scores = applyScores(
+        { caught, guessed: false },
+        r.game.round.playerOrder,
+        r.game.round.liarId,
+        r.game.scores,
+      );
+      r.game.phase = 'roundEnd';
+    });
+  }, [update]);
+
+  const submitGuessTimeoutRef = useRef(submitGuessTimeout);
+  const guessFireRef = useRef(false);
+  useEffect(() => {
+    submitGuessTimeoutRef.current = submitGuessTimeout;
+    const liarId = ready ? root.game.round.liarId : '';
+    const liarPresent = presences.some((p) => p.presence.uid === liarId);
+    const iAmLiar = !!myActorID && myActorID === liarId;
+    const amHost = !!myActorID && myActorID === hostId;
+    guessFireRef.current =
+      phase === 'guessing' &&
+      !paused &&
+      (iAmLiar || (!liarPresent && amHost));
+  });
+  useEffect(() => {
+    if (loading || error) return;
+    if (phase !== 'guessing' || paused) return;
+    const id = setTimeout(() => {
+      if (guessFireRef.current) submitGuessTimeoutRef.current();
+    }, GUESS_TIME_MS);
+    return () => clearTimeout(id);
+  }, [loading, error, phase, paused, roundIndex]);
 
   if (loading) {
     return <div className="room__status">{t.room.connecting(room)}</div>;
@@ -217,9 +434,33 @@ function RoomInner({
   }
 
   const uniquePresences = dedupeByUid(presences);
-  const myName =
-    uniquePresences.find((p) => p.presence.uid === myActorID)?.presence.name ??
-    '';
+
+  // Reconstruct any known player who isn't currently present from the
+  // document (roster name + assigned color), so a momentary presence
+  // drop never blanks their name ("???") or hides their profile. Used
+  // for *display only* — liveness decisions (election, turn order,
+  // drawer-present) stay on the live `uniquePresences`.
+  const liveUids = new Set(uniquePresences.map((p) => p.presence.uid));
+  const roster = root.roster ?? {};
+  const knownUids =
+    root.game.round.playerOrder.length > 0
+      ? root.game.round.playerOrder
+      : Object.keys(roster);
+  const ghostPresences: Array<{ clientID: string; presence: CanvasPresence }> =
+    knownUids
+      .filter((uid) => !liveUids.has(uid) && roster[uid])
+      .map((uid) => ({
+        clientID: uid,
+        presence: {
+          uid,
+          name: roster[uid],
+          color: root.game.colors?.[uid] ?? '#888888',
+          typing: false,
+          lastSeen: 0,
+        },
+      }));
+  const displayPresences = [...uniquePresences, ...ghostPresences];
+
   // Reject a duplicate name. Both clashing clients see each other; the
   // one with the larger uid bounces, so exactly one of them does.
   const nameClash =
@@ -254,23 +495,28 @@ function RoomInner({
   const order = root.game.round.playerOrder;
   const profileSource = order.length
     ? order
-        .map((id) => uniquePresences.find((p) => p.presence.uid === id))
+        .map((id) => displayPresences.find((p) => p.presence.uid === id))
         .filter(
           (p): p is { clientID: string; presence: CanvasPresence } => !!p,
         )
-    : uniquePresences;
+    : displayPresences;
   const profiles = profileSource.slice(0, 8);
-  const leftProfiles = profiles.filter((_, i) => i % 2 === 0);
-  const rightProfiles = profiles.filter((_, i) => i % 2 === 1);
   const showScores = root.game.phase !== 'lobby';
+
+  const drawingUid = phase === 'drawing' && drawerId ? drawerId : null;
 
   const renderProfile = (presence: CanvasPresence) => {
     const uid = presence.uid;
     const active = highlightId === uid;
+    const isDrawing = uid === drawingUid;
+    const cls =
+      'profile' +
+      (active ? ' profile--active' : '') +
+      (isDrawing ? ' profile--drawing' : '');
     return (
       <button
         key={uid}
-        className={active ? 'profile profile--active' : 'profile'}
+        className={cls}
         style={{ borderColor: presence.color }}
         onClick={() => setHighlightId((cur) => (cur === uid ? null : uid))}
         aria-pressed={active}
@@ -283,6 +529,11 @@ function RoomInner({
           {presence.name}
           {uid === myActorID ? ' (me)' : ''}
         </span>
+        {isDrawing && (
+          <span className="profile__turn" aria-label="drawing now">
+            ✏️
+          </span>
+        )}
         {showScores && (
           <span className="profile__score">
             {root.game.scores[uid] ?? 0}
@@ -341,28 +592,59 @@ function RoomInner({
           >
             {chatOpen ? t.chat.hide : t.chat.show}
           </button>
+          {chatOpen && (
+            <button
+              className="room__chatDock"
+              onClick={() =>
+                setChatPos((p) => (p === 'side' ? 'bottom' : 'side'))
+              }
+            >
+              {chatPos === 'side' ? t.chat.dockBottom : t.chat.dockSide}
+            </button>
+          )}
           <button className="room__leave" onClick={onLeave}>
             {t.common.leave}
           </button>
         </div>
       </header>
 
-      <div className="room__body">
-        <aside className="room__profiles room__profiles--left">
-          {leftProfiles.map(({ presence }) => renderProfile(presence))}
-        </aside>
-        <main className="room__main">{renderPhase()}</main>
-        <aside className="room__profiles room__profiles--right">
-          {rightProfiles.map(({ presence }) => renderProfile(presence))}
-        </aside>
+      <div className={`room__body room__body--chat-${chatPos}`}>
+        <div className="room__stage">
+          <aside className="room__profiles">
+            {profiles.map(({ presence }) => renderProfile(presence))}
+          </aside>
+          <main className="room__main">
+            {renderPhase()}
+            {paused && (
+              <div className="pauseOverlay">
+                <div className="pauseOverlay__card">
+                  <strong className="pauseOverlay__title">
+                    {t.room.pausedTitle}
+                  </strong>
+                  <p className="pauseOverlay__sub">{t.room.pausedSub}</p>
+                </div>
+              </div>
+            )}
+          </main>
+        </div>
         {chatOpen && (
           <Chat
             myActorID={myActorID}
-            presences={uniquePresences}
+            presences={displayPresences}
             suppressTyping={suppressTyping}
           />
         )}
       </div>
+
+      {toasts.length > 0 && (
+        <div className="toasts" role="status" aria-live="polite">
+          {toasts.map((toast) => (
+            <div key={toast.id} className="toast">
+              {toast.text}
+            </div>
+          ))}
+        </div>
+      )}
 
       {howToOpen && <HowToModal onClose={() => setHowToOpen(false)} />}
     </div>
@@ -456,7 +738,7 @@ function RoomInner({
           <InRoomLobby
             isHost={isHost}
             config={root.game.config}
-            presences={uniquePresences}
+            presences={displayPresences}
             onConfigChange={onConfigChange}
             onStart={onStart}
           />
@@ -479,7 +761,7 @@ function RoomInner({
           <Finished
             game={root.game}
             isHost={isHost}
-            presences={uniquePresences}
+            presences={displayPresences}
             onPlayAgain={onPlayAgain}
           />
         );
@@ -497,7 +779,7 @@ function RoomInner({
           <Reveal
             round={root.game.round}
             isHost={isHost && !spectating}
-            presences={uniquePresences}
+            presences={displayPresences}
             onContinue={onContinue}
           />,
         );
@@ -507,8 +789,9 @@ function RoomInner({
           if (!myActorID) return;
           if (myActorID !== root.game.round.liarId) return;
           update((r) => {
-            const { accusedId } = tallyVotes(r.game.round.votes);
-            const caught = accusedId === r.game.round.liarId;
+            const { accusedId, tied } = tallyVotes(r.game.round.votes);
+            // A tie = no single clear accusation, so the liar escapes.
+            const caught = !tied && accusedId === r.game.round.liarId;
             r.game.round.liarGuess = guess;
             r.game.round.guessCorrect = correct;
             r.game.round.wasCaught = caught;
@@ -525,7 +808,8 @@ function RoomInner({
           <Guessing
             round={root.game.round}
             myActorID={myActorID}
-            presences={uniquePresences}
+            keywordLanguage={root.game.config.keywordLanguage}
+            presences={displayPresences}
             onSubmit={onSubmit}
           />,
         );
@@ -583,7 +867,7 @@ function RoomInner({
           <RoundEnd
             game={root.game}
             isHost={isHost && !spectating}
-            presences={uniquePresences}
+            presences={displayPresences}
             onNext={onNext}
             onFinish={onFinish}
           />,
@@ -595,16 +879,6 @@ function RoomInner({
           if (!root.game.round.playerOrder.includes(myActorID)) return;
           update((r) => {
             r.game.round.votes[myActorID] = suspectId;
-          });
-        };
-        const onReveal = () => {
-          if (!isHost) return;
-          const allIn =
-            Object.keys(root.game.round.votes).length >=
-            root.game.round.playerOrder.length;
-          if (!allIn) return;
-          update((r) => {
-            r.game.phase = 'reveal';
           });
         };
         if (spectating) {
@@ -619,10 +893,8 @@ function RoomInner({
           <Voting
             round={root.game.round}
             myActorID={myActorID}
-            isHost={isHost}
-            presences={uniquePresences}
+            presences={displayPresences}
             onVote={onVote}
-            onReveal={onReveal}
           />,
         );
       }
@@ -631,21 +903,11 @@ function RoomInner({
         const drawerId = playerOrder[turnIndex % playerOrder.length] ?? '';
         const isMyTurn = !!myActorID && myActorID === drawerId;
         const drawerName =
-          uniquePresences.find((p) => p.presence.uid === drawerId)?.presence
+          displayPresences.find((p) => p.presence.uid === drawerId)?.presence
             .name ?? '';
         const onStrokeEnd = () => {
           if (!isMyTurn) return;
           advanceTurn();
-        };
-        const onClearBoard = () => {
-          if (!isHost) return;
-          update((r) => {
-            while (r.strokes.length > 0) r.strokes.delete?.(0);
-            r.game.round.strokesDone = 0;
-            r.game.round.turnIndex = 0;
-            r.game.round.brushUsedPx = 0;
-            r.game.round.turnStartedAt = Date.now();
-          });
         };
         return (
           <div className="phase">
@@ -656,7 +918,7 @@ function RoomInner({
               round={root.game.round}
               config={root.game.config}
               myActorID={myActorID}
-              presences={uniquePresences}
+              presences={displayPresences}
             />
             <div className="phase__gauges">
               <BrushMeter round={root.game.round} />
@@ -666,12 +928,10 @@ function RoomInner({
               strokes={root.strokes}
               isMyTurn={isMyTurn}
               drawerName={drawerName}
-              isHost={isHost}
               myUid={myActorID}
               myColor={myColor}
               highlightId={highlightId}
               onStrokeEnd={onStrokeEnd}
-              onClearBoard={onClearBoard}
             />
           </div>
         );
@@ -705,11 +965,18 @@ export default function Room({ room, name, onLeave }: Props) {
             game: initialGame(),
             strokes: [],
             chat: [],
+            roster: {},
           } as unknown as DocRoot
         }
-        initialPresence={{ uid: myUid, name, color: myColor, typing: false }}
+        initialPresence={{
+          uid: myUid,
+          name,
+          color: myColor,
+          typing: false,
+          lastSeen: 0,
+        }}
       >
-        <RoomInner room={room} myUid={myUid} onLeave={onLeave} />
+        <RoomInner room={room} myUid={myUid} myName={name} onLeave={onLeave} />
       </DocumentProvider>
     </YorkieProvider>
   );

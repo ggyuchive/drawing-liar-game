@@ -16,12 +16,18 @@ export default function Reveal({
   onContinue,
 }: Props) {
   const t = useT().reveal;
-  const { accusedId, counts } = tallyVotes(round.votes);
+  const { counts } = tallyVotes(round.votes);
   const nameFor = (id: string) =>
     presences.find((p) => p.presence.uid === id)?.presence.name ?? '???';
 
-  const wasLiarCaught = accusedId === round.liarId;
-  const maxCount = Math.max(1, ...Object.values(counts));
+  const maxVotes = Math.max(0, ...Object.values(counts));
+  const topIds = round.playerOrder.filter(
+    (id) => (counts[id] ?? 0) === maxVotes && maxVotes > 0,
+  );
+  // A single clear accusation only when exactly one player leads.
+  const singleAccused = topIds.length === 1 ? topIds[0] : '';
+  const wasLiarCaught = !!singleAccused && singleAccused === round.liarId;
+  const maxCount = Math.max(1, maxVotes);
 
   return (
     <div className="reveal">
@@ -31,7 +37,8 @@ export default function Reveal({
         {round.playerOrder.map((id) => {
           const c = counts[id] ?? 0;
           const pct = (c / maxCount) * 100;
-          const isAccused = id === accusedId && c > 0;
+          // Highlight whoever leads (both/all of them when it's a tie).
+          const isAccused = c === maxVotes && maxVotes > 0;
           return (
             <li key={id} className="reveal__bar">
               <span className="reveal__barName">{nameFor(id)}</span>
@@ -52,9 +59,15 @@ export default function Reveal({
       </ul>
 
       <p className="reveal__verdict">
-        {t.accusedLabel}: <strong>{nameFor(accusedId)}</strong>
-        {' — '}
-        {wasLiarCaught ? t.theLiar : t.notTheLiar}
+        {singleAccused ? (
+          <>
+            {t.accusedLabel}: <strong>{nameFor(singleAccused)}</strong>
+            {' — '}
+            {wasLiarCaught ? t.theLiar : t.notTheLiar}
+          </>
+        ) : (
+          t.tie
+        )}
       </p>
 
       {isHost && (

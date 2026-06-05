@@ -36,6 +36,7 @@ const ko: Locale = {
       copyCode: '코드 복사',
       copied: '복사됨!',
       leave: '나가기',
+      time: '시간',
     },
     howTo: {
       openLabel: '게임 방법',
@@ -48,6 +49,14 @@ const ko: Locale = {
         '지목된 사람이 공개되고, 라이어는 키워드를 한 번 추측합니다.',
         '점수는 라이어를 잡은 방과, 잘 속이고 키워드까지 맞힌 라이어에게 주어집니다. 마지막 라운드 후 최고 점수가 승리.',
         '측면의 플레이어를 클릭하면 그 사람의 선만 진하게 볼 수 있어요 — 라이어 찾기에 유용합니다.',
+      ],
+      scoringTitle: '점수 규칙',
+      scoringCols: ['결과', '라이어', '나머지'],
+      scoringRows: [
+        ['들켰지만 정답을 맞힘', '+1', '+1'],
+        ['들켰고 정답도 틀림', '0', '+2'],
+        ['안 들켰고 정답을 맞힘', '+3', '0'],
+        ['안 들켰지만 정답은 틀림', '+2', '+1'],
       ],
       close: '확인',
     },
@@ -81,6 +90,9 @@ const ko: Locale = {
       backToLobby: '로비로 돌아가기',
       nameTaken: (name) =>
         `"${name}" 닉네임은 이 방에서 이미 사용 중이에요. 다른 이름을 골라 주세요.`,
+      playerLeft: (name) => `${name} 님이 나갔어요.`,
+      pausedTitle: '일시정지',
+      pausedSub: '최소 3명이 필요해요. 플레이어가 (다시) 들어오기를 기다리는 중…',
     },
     spectator: {
       banner: '관전 중 — 다음 라운드부터 함께해요.',
@@ -93,9 +105,6 @@ const ko: Locale = {
       waiting: '대기 중…',
       brushLabel: '잉크',
       timerLabel: '시간',
-      clearBoard: '보드 지우기',
-      clearConfirm: '지울까요?',
-      clearCancel: '취소',
     },
     chat: {
       title: '채팅',
@@ -106,6 +115,8 @@ const ko: Locale = {
       typingMany: (n) => `${n}명이 입력 중…`,
       show: '채팅 열기',
       hide: '채팅 닫기',
+      dockSide: '채팅 옆으로 →',
+      dockBottom: '채팅 아래로 ↓',
     },
     hud: {
       yourRole: '내 역할',
@@ -119,14 +130,13 @@ const ko: Locale = {
       votesIn: (n, m) => `투표 ${n} / ${m}`,
       youPicked: (name) => ` — ${name} 님 선택함`,
       voted: '투표함',
-      reveal: '결과 공개',
-      waitingForVotes: '모두의 투표를 기다리는 중…',
     },
     reveal: {
       title: '투표 결과',
       accusedLabel: '지목됨',
       theLiar: '라이어가 맞습니다!',
       notTheLiar: '라이어가 아닙니다.',
+      tie: '동점이라 아무도 확실히 지목되지 않았어요 — 라이어가 빠져나갑니다.',
       continueAction: '계속',
     },
     guessing: {
@@ -136,6 +146,7 @@ const ko: Locale = {
       selfSub: '단 한 번의 기회. 맞히면 점수를 되찾습니다.',
       submit: '정답 제출',
       placeholder: '예: 등대',
+      answerIn: (language) => `정답은 ${language}로 입력하세요.`,
     },
     roundEnd: {
       title: (n, total) => `${n} / ${total} 라운드`,

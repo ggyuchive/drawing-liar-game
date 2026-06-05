@@ -10,6 +10,9 @@ export function shuffle<T>(xs: ReadonlyArray<T>): Array<T> {
 export function tallyVotes(votes: Record<string, string>): {
   accusedId: string;
   counts: Record<string, number>;
+  // True when the top vote count is shared by 2+ players (no single
+  // clear accusation). Deterministic, so every client agrees.
+  tied: boolean;
 } {
   const counts: Record<string, number> = {};
   for (const target of Object.values(votes)) {
@@ -17,7 +20,10 @@ export function tallyVotes(votes: Record<string, string>): {
   }
   const entries = Object.entries(counts).sort((a, b) => b[1] - a[1]);
   const accusedId = entries[0]?.[0] ?? '';
-  return { accusedId, counts };
+  const maxCount = entries[0]?.[1] ?? 0;
+  const tied =
+    maxCount > 0 && entries.filter(([, c]) => c === maxCount).length > 1;
+  return { accusedId, counts, tied };
 }
 
 export function normalizeGuess(s: string): string {
@@ -53,4 +59,19 @@ export function applyScores(
     next[id] = prev + (id === liarId ? liarDelta : nonLiarDelta);
   }
   return next;
+}
+
+// Per-player points gained in a single round (the +delta), so a
+// scoreboard can show "previous + gained".
+export function roundDeltas(
+  outcome: ScoreOutcome,
+  playerOrder: ReadonlyArray<string>,
+  liarId: string,
+): Record<string, number> {
+  const [liarDelta, nonLiarDelta] = deltas(outcome);
+  const out: Record<string, number> = {};
+  for (const id of playerOrder) {
+    out[id] = id === liarId ? liarDelta : nonLiarDelta;
+  }
+  return out;
 }

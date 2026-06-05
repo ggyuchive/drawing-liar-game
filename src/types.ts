@@ -67,11 +67,19 @@ export type CanvasPresence = {
   name: string;
   color: string;
   typing: boolean;
+  // Bumped periodically and on focus/interaction so a backgrounded
+  // tab re-asserts its presence (otherwise the heartbeat stalls, the
+  // server reclaims the session, and peers see the player drop).
+  lastSeen: number;
 };
 
 export const DEFAULT_BRUSH_BUDGET_PX = 1500;
 export const DEFAULT_TURN_TIME_MS = 10_000;
 export const DEFAULT_KEYWORD_DECK = 'general';
+// Wall-clock caps (measured locally per client) for the voting and
+// liar-guessing phases.
+export const VOTE_TIME_MS = 30_000;
+export const GUESS_TIME_MS = 30_000;
 
 const emptyRound = (): Round => ({
   index: 0,

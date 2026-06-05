@@ -1,5 +1,6 @@
 import { useT } from '../i18n';
 import type { CanvasPresence, Game } from '../types';
+import { roundDeltas } from './state';
 
 type Props = {
   game: Game;
@@ -25,6 +26,14 @@ export default function RoundEnd({
   const liarName = nameFor(round.liarId);
   const lastRound = round.index >= config.totalRounds;
 
+  // Points each player gained this round, so the board shows
+  // "previous + gained" and the running total is visibly accumulating.
+  const gained = roundDeltas(
+    { caught: round.wasCaught, guessed: round.guessCorrect },
+    round.playerOrder,
+    round.liarId,
+  );
+
   // Four cells of the 2×2 table (caught × guessed).
   let outcomeText: string;
   if (round.wasCaught) {
@@ -43,13 +52,20 @@ export default function RoundEnd({
       <p className="roundEnd__outcome">{outcomeText}</p>
 
       <ul className="roundEnd__scoreboard">
-        {ranked.map(([id, score], idx) => (
-          <li key={id} className="roundEnd__row">
-            <span className="roundEnd__rank">{idx + 1}</span>
-            <span className="roundEnd__name">{nameFor(id)}</span>
-            <span className="roundEnd__score">{score}</span>
-          </li>
-        ))}
+        {ranked.map(([id, score], idx) => {
+          const delta = gained[id] ?? 0;
+          const prev = score - delta;
+          return (
+            <li key={id} className="roundEnd__row">
+              <span className="roundEnd__rank">{idx + 1}</span>
+              <span className="roundEnd__name">{nameFor(id)}</span>
+              <span className="roundEnd__score">
+                {prev}
+                <span className="roundEnd__delta"> + {delta}</span>
+              </span>
+            </li>
+          );
+        })}
       </ul>
 
       {isHost ? (

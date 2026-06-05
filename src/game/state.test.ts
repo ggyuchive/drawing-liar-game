@@ -42,6 +42,16 @@ describe('tallyVotes', () => {
 
   it('handles no votes', () => {
     expect(tallyVotes({}).accusedId).toBe('');
+    expect(tallyVotes({}).tied).toBe(false);
+  });
+
+  it('flags a tie for the top vote count', () => {
+    // p1 and p2 each get one vote — a tie.
+    expect(tallyVotes({ a: 'p1', b: 'p2' }).tied).toBe(true);
+  });
+
+  it('is not tied with a single clear leader', () => {
+    expect(tallyVotes({ a: 'p1', b: 'p1', c: 'p2' }).tied).toBe(false);
   });
 });
 
