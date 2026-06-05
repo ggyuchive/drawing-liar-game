@@ -1,4 +1,4 @@
-import { LOCALE_LIST, useT } from '../i18n';
+import { deckListFor, LOCALE_LIST, useT } from '../i18n';
 import type { GameConfig, CanvasPresence } from '../types';
 
 const MIN_PLAYERS = 3;
@@ -20,6 +20,7 @@ export default function InRoomLobby({
 }: Props) {
   const t = useT().inRoomLobby;
   const ready = presences.length >= MIN_PLAYERS;
+  const decks = deckListFor(config.keywordLanguage);
 
   return (
     <div className="lobbyIn">
@@ -73,21 +74,38 @@ export default function InRoomLobby({
               />
             </label>
           </div>
-          <label className="lobbyIn__configCell">
-            {t.keywordLanguage}
-            <select
-              value={config.keywordLanguage}
-              onChange={(e) =>
-                onConfigChange({ keywordLanguage: e.target.value })
-              }
-            >
-              {LOCALE_LIST.map((l) => (
-                <option key={l.code} value={l.code}>
-                  {l.name}
-                </option>
-              ))}
-            </select>
-          </label>
+          <div className="lobbyIn__configRow">
+            <label className="lobbyIn__configCell">
+              {t.keywordLanguage}
+              <select
+                value={config.keywordLanguage}
+                onChange={(e) =>
+                  onConfigChange({ keywordLanguage: e.target.value })
+                }
+              >
+                {LOCALE_LIST.map((l) => (
+                  <option key={l.code} value={l.code}>
+                    {l.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="lobbyIn__configCell">
+              {t.keywordDeck}
+              <select
+                value={config.keywordDeck}
+                onChange={(e) =>
+                  onConfigChange({ keywordDeck: e.target.value })
+                }
+              >
+                {decks.map((d) => (
+                  <option key={d.key} value={d.key}>
+                    {d.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
           <button
             className="lobbyIn__start"
             onClick={onStart}

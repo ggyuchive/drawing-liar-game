@@ -60,6 +60,30 @@ input[type='text']:focus {
   border-color: var(--accent);
 }
 
+/* Keyboard-only focus rings: visible for tab navigation, suppressed
+   for mouse/touch so the UI stays clean. */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+button:focus:not(:focus-visible),
+select:focus:not(:focus-visible),
+input:focus:not(:focus-visible) {
+  outline: none;
+}
+
 code {
   font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+}
+
+/* Respect users who ask for less motion (e.g. the timer pulse). */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }

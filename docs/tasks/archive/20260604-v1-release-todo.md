@@ -1,5 +1,16 @@
 # v1.0 Release Implementation Plan
 
+> **Status (archived):** All *code/docs* tasks are complete — host
+> promotion, late-joiner spectators, reconnect badge, error states,
+> bundle code-splitting, a11y pass, CI, LICENSE/CONTRIBUTING/CoC,
+> public README, and the CHANGELOG draft. The *manual / outward-facing*
+> tasks are intentionally **not** done by tooling and remain for a
+> human: Task 7 (real-device browser matrix), Task 9 (connect Vercel +
+> set env vars + first deploy), Task 5's Lighthouse run, and Task 12's
+> beta + `v1.0.0` tag + GitHub release. See the paired lesson
+> [`docs/lessons/20260604-v1-release.md`](../../lessons/20260604-v1-release.md)
+> for what was learned and the exact human follow-ups.
+
 > **For agentic workers:** Phases 4 + 5 of the
 > [roadmap](../../design/roadmap.md). Steps use checkbox (`- [ ]`)
 > syntax. Each task ends with a single commit using the project's

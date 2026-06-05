@@ -1,37 +1,79 @@
-# drawing-liar-game
+# 🎨 Drawing Liar Game
 
-A web-based multiplayer **liar drawing game** built on the [Yorkie JS SDK](https://yorkie.dev).
+A web-based multiplayer **liar drawing game** on a shared canvas,
+built on the [Yorkie JS SDK](https://yorkie.dev). Everyone draws the
+same secret keyword — except one player, the **liar**, who has no idea
+what it is and has to bluff. Spot the liar before they slip away.
 
-One noun keyword is shared with every player except one — the liar. Players take
-turns drawing on a shared canvas (one continuous stroke per turn). After a few
-rounds, everyone votes on who the liar is. If caught, the liar gets a chance to
-guess the keyword.
+> **Play:** _(production URL goes here once deployed)_
 
-## Status
+<!-- Add a screenshot or GIF of a round in progress here. -->
 
-MVP playable end-to-end. What works today:
+## How to play
 
-- Join lobby with a 6-char room code (also embedded in the URL hash, so the URL is the share link).
-- In-room waiting screen with host config (rounds, turns per player). Start button gates on 3+ players.
-- Round flow: keyword + liar assignment → turn-by-turn drawing (one continuous stroke per turn) → voting → reveal → optional liar guess → scoring.
-- Multiple rounds with running scoreboard, final ranking, "Play again" to reset within the same room.
+- One player **creates a room** and shares the link (the room code
+  lives in the URL, so the URL *is* the invite).
+- Everyone else **joins** with the link or the 8-character code.
+  You need **3+ players** to start.
+- Each round, everyone sees a **keyword** — except the randomly
+  chosen **liar**, who only knows they're the liar.
+- Players take turns **drawing** on the shared canvas. Each turn has a
+  **brush budget** and a **10-second timer**; whichever runs out first
+  ends your turn.
+- After the turns, everyone **votes** on who they think the liar is.
+- The accused is revealed, then the **liar always takes one guess** at
+  the keyword.
+- **Scoring** rewards both sides: the room scores for catching the
+  liar, the liar scores for bluffing and for actually knowing the
+  word. Highest score after the final round wins.
+- **Chat** is open the whole game — banter, accuse, mislead.
 
-Out of scope for MVP and intentionally not built: host auto-promotion on disconnect, server-side keyword secrecy, drawing-tool palette, mobile-specific layout.
-
-## Setup
+## Run locally
 
 ```sh
 pnpm install
 cp .env.example .env
 # fill in VITE_YORKIE_API_KEY from https://yorkie.dev
-pnpm dev
+pnpm dev          # http://localhost:5173
 ```
 
-To play with friends locally, share the URL after creating a room — the room
-code is in the URL hash (`#room=ABC123`).
+Create a room, then open the URL in a second browser window (or send
+it to friends) to play together.
+
+Other commands:
+
+```sh
+pnpm build        # tsc -b && vite build
+pnpm preview      # serve the production build
+pnpm lint         # ESLint
+```
+
+## Translating
+
+The UI ships in **English** and **Korean**, and adding a language is a
+drop-in: copy [`src/i18n/lang/en.ts`](src/i18n/lang/en.ts) to
+`<code>.ts`, translate the strings and keyword decks, and it
+auto-registers via the glob in `src/i18n/core.ts`. TypeScript enforces
+that every string is present, so you can't ship a half-translated
+file by accident.
 
 ## Tech
 
-- React 19 + Vite + TypeScript
-- `@yorkie-js/sdk` + `@yorkie-js/react` for real-time sync
-- HTML5 Canvas, strokes stored as `{ color, points: [{x,y}] }` arrays in the Yorkie doc
+- **React 19 + Vite + TypeScript** — SPA, dev server, type safety.
+- **`@yorkie-js/sdk` + `@yorkie-js/react`** — CRDT-based real-time
+  sync; each room is a Yorkie document.
+- **HTML5 Canvas** — strokes stored as `{ id, color, size, points }`
+  arrays in the document, so every peer renders the same drawing as
+  it happens.
+
+## Contributing
+
+Issues and pull requests are welcome — see
+[`CONTRIBUTING.md`](CONTRIBUTING.md) for setup, the commit-message
+convention, and how the project plans work in
+[`docs/`](docs/). Be excellent to each other:
+[`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md).
+
+## License
+
+[MIT](LICENSE).

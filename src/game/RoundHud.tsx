@@ -19,7 +19,7 @@ export default function RoundHud({
   const drawerId =
     round.playerOrder[round.turnIndex % round.playerOrder.length] ?? '';
   const drawerName =
-    presences.find((p) => p.clientID === drawerId)?.presence.name ?? '???';
+    presences.find((p) => p.presence.uid === drawerId)?.presence.name ?? '???';
   const total = round.playerOrder.length * config.turnsPerPlayer;
   const turnNumber = Math.min(round.strokesDone + 1, total);
 

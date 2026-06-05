@@ -6,7 +6,7 @@ type Props = {
   round: Round;
   isHost: boolean;
   presences: Array<{ clientID: string; presence: CanvasPresence }>;
-  onContinue: (accusedId: string, wasLiarCaught: boolean) => void;
+  onContinue: () => void;
 };
 
 export default function Reveal({
@@ -18,7 +18,7 @@ export default function Reveal({
   const t = useT().reveal;
   const { accusedId, counts } = tallyVotes(round.votes);
   const nameFor = (id: string) =>
-    presences.find((p) => p.clientID === id)?.presence.name ?? '???';
+    presences.find((p) => p.presence.uid === id)?.presence.name ?? '???';
 
   const wasLiarCaught = accusedId === round.liarId;
   const maxCount = Math.max(1, ...Object.values(counts));
@@ -58,11 +58,8 @@ export default function Reveal({
       </p>
 
       {isHost && (
-        <button
-          className="reveal__continue"
-          onClick={() => onContinue(accusedId, wasLiarCaught)}
-        >
-          {wasLiarCaught ? t.giveGuess : t.continueAction}
+        <button className="reveal__continue" onClick={() => onContinue()}>
+          {t.continueAction}
         </button>
       )}
     </div>

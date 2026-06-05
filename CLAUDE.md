@@ -24,9 +24,29 @@ pnpm dev        # Vite dev server (http://localhost:5173)
 pnpm build      # tsc -b && vite build (production bundle)
 pnpm preview    # serve the built bundle
 pnpm lint       # ESLint
+pnpm test       # Vitest (run once); pnpm test:watch for watch mode
 ```
 
-There is no test suite yet. When tests are added, this section should call out the runner and the command to run them.
+## Testing
+
+The runner is **Vitest** (`pnpm test`), and CI runs it on every PR.
+
+Game logic that matters for correctness lives in pure,
+framework-free functions in `src/game/engine.ts` (host election,
+player-order cap, color assignment, turn rotation, spectator and
+duplicate-name predicates) and `src/game/state.ts` (scoring, vote
+tally). `Room.tsx` drives these same functions from inside its
+Yorkie `update()` callbacks, so the tests exercise the real shipping
+logic rather than a copy.
+
+`src/game/multiuser.test.ts` is a server-free, browser-free
+**multi-user simulation**: it runs whole games in memory (several
+players, turn rotation, host hand-off on disconnect, the 8-player
+cap + spectators, scoring) and is the regression guard for bugs like
+"the round jumps to voting before the turns finish." Keep
+correctness-critical logic in the pure modules so it stays testable
+this way — avoid burying it inside React effects or `update()`
+bodies.
 
 ## Commit Message Restrictions
 

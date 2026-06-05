@@ -4,21 +4,54 @@ const en: Locale = {
   code: 'en',
   name: 'English',
 
-  keywords: [
-    'apple', 'banana', 'cactus', 'castle', 'cloud', 'compass',
-    'crown', 'dolphin', 'dragon', 'elephant', 'forest', 'glasses',
-    'guitar', 'hat', 'island', 'jellyfish', 'kite', 'ladder',
-    'lighthouse', 'mountain', 'mushroom', 'octopus', 'piano',
-    'pineapple', 'pirate', 'pizza', 'planet', 'rainbow', 'robot',
-    'rocket', 'sandwich', 'scissors', 'snowman', 'spaceship',
-    'submarine', 'sunglasses', 'telescope', 'tornado', 'tree',
-    'umbrella', 'unicorn', 'volcano', 'waterfall', 'windmill',
-  ],
+  keywords: {
+    general: {
+      name: 'General',
+      words: [
+        'castle', 'cloud', 'compass', 'crown', 'dragon', 'glasses',
+        'guitar', 'hat', 'kite', 'ladder', 'lighthouse', 'piano',
+        'pirate', 'planet', 'robot', 'rocket', 'scissors', 'snowman',
+        'spaceship', 'submarine', 'telescope', 'umbrella', 'unicorn',
+        'windmill',
+      ],
+    },
+    food: {
+      name: 'Food',
+      words: [
+        'apple', 'banana', 'pineapple', 'pizza', 'sandwich',
+        'mushroom', 'cactus', 'cake', 'donut', 'noodles', 'pancake',
+        'popcorn',
+      ],
+    },
+    nature: {
+      name: 'Nature',
+      words: [
+        'forest', 'island', 'mountain', 'rainbow', 'tree', 'volcano',
+        'waterfall', 'tornado', 'dolphin', 'elephant', 'jellyfish',
+        'octopus',
+      ],
+    },
+  },
 
   ui: {
     common: {
-      copyLink: 'Copy link',
+      copyCode: 'Copy code',
+      copied: 'Copied!',
       leave: 'Leave',
+    },
+    howTo: {
+      openLabel: 'How to play',
+      title: 'How to play',
+      steps: [
+        'Everyone shares one secret keyword — except one player, the liar, who has no idea what it is.',
+        'Players take turns drawing the keyword on the shared canvas. Each turn has a brush budget and a 10-second timer.',
+        "The liar doesn't know the word, so they bluff — drawing something plausible to blend in.",
+        'After the drawing turns, everyone votes on who they think the liar is.',
+        'The accused is revealed, then the liar takes one guess at the keyword.',
+        'Scores reward the room for catching the liar, and the liar for bluffing and for actually guessing the word. Highest score after the last round wins.',
+        'Click a player on the side to highlight only their strokes — handy for spotting the liar.',
+      ],
+      close: 'Got it',
     },
     joinLobby: {
       tagline: 'A liar drawing game on a shared canvas.',
@@ -35,6 +68,7 @@ const en: Locale = {
       rounds: 'Rounds',
       turnsPerPlayer: 'Turns per player',
       keywordLanguage: 'Keyword language',
+      keywordDeck: 'Keyword deck',
       startGame: 'Start game',
       needMorePlayers: (n) =>
         `Need ${n} more player${n === 1 ? '' : 's'}`,
@@ -43,14 +77,39 @@ const en: Locale = {
     room: {
       roomLabel: 'Room',
       connecting: (code) => `Connecting to room ${code}…`,
-      error: (msg) => `Error: ${msg}`,
       missingApiKey:
         'Missing VITE_YORKIE_API_KEY. Copy .env.example to .env and fill in your Yorkie API key.',
+      reconnecting: 'Reconnecting…',
+      attachFailed:
+        "Couldn't join this room. Check your connection and try again.",
+      backToLobby: 'Back to lobby',
+      nameTaken: (name) =>
+        `The name "${name}" is already taken in this room. Pick another.`,
+    },
+    spectator: {
+      banner: 'Spectating — you join the action next round.',
+      votingTitle: "You're spectating",
+      votingSub: 'Players who drew this round are voting. Sit tight!',
     },
     canvas: {
-      yourTurn: 'Your turn — one stroke.',
+      yourTurn: 'Your turn — draw!',
       drawing: (name) => `${name} is drawing…`,
       waiting: 'Waiting…',
+      brushLabel: 'Brush',
+      timerLabel: 'Turn',
+      clearBoard: 'Clear board',
+      clearConfirm: 'Clear it?',
+      clearCancel: 'Cancel',
+    },
+    chat: {
+      title: 'Chat',
+      placeholder: 'Say something…',
+      send: 'Send',
+      empty: 'No messages yet. Say hi!',
+      typing: (name) => `${name} is typing…`,
+      typingMany: (n) => `${n} people are typing…`,
+      show: 'Show chat',
+      hide: 'Hide chat',
     },
     hud: {
       yourRole: 'Your role',
@@ -72,25 +131,26 @@ const en: Locale = {
       accusedLabel: 'Accused',
       theLiar: 'the liar!',
       notTheLiar: 'not the liar.',
-      giveGuess: 'Give the liar a chance to guess',
       continueAction: 'Continue',
     },
     guessing: {
       othersTitle: (name) => `${name} is guessing…`,
-      othersSub: 'The liar gets one shot at the keyword to steal the round back.',
-      selfTitle: 'You were caught — guess the keyword',
-      selfSub: 'One try. Get it right and you steal the round.',
+      othersSub: 'The liar takes one shot at the keyword.',
+      selfTitle: 'Guess the keyword',
+      selfSub: 'One try. Nail it and you steal points back.',
       submit: 'Submit guess',
       placeholder: 'e.g. lighthouse',
     },
     roundEnd: {
       title: (n, total) => `Round ${n} / ${total}`,
-      outcomeCaughtRight: (liar, keyword) =>
-        `${liar} was caught but guessed "${keyword}" — half marks all round.`,
-      outcomeCaughtWrong: (liar, guess, keyword) =>
-        `${liar} was caught and guessed "${guess}". The real keyword was "${keyword}".`,
-      outcomeEscaped: (liar, keyword) =>
-        `The liar (${liar}) slipped past — keyword was "${keyword}".`,
+      outcomeCaughtGuessed: (liar, keyword) =>
+        `${liar} was caught but still guessed "${keyword}" — half marks all round.`,
+      outcomeCaughtBlanked: (liar, guess, keyword) =>
+        `${liar} was caught and guessed "${guess}". The keyword was "${keyword}". Clean win for the room.`,
+      outcomeEscapedGuessed: (liar, keyword) =>
+        `The liar (${liar}) bluffed past you AND knew it was "${keyword}". Flawless.`,
+      outcomeEscapedBlanked: (liar, guess, keyword) =>
+        `${liar} bluffed past you but guessed "${guess}" — it was "${keyword}". A small consolation for the room.`,
       nextRound: 'Next round',
       seeFinal: 'See final ranking',
       waitingWrap: 'Waiting for host to wrap up…',

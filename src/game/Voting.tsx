@@ -25,7 +25,7 @@ export default function Voting({
 
   const order = round.playerOrder;
   const nameFor = (id: string) =>
-    presences.find((p) => p.clientID === id)?.presence.name ?? '???';
+    presences.find((p) => p.presence.uid === id)?.presence.name ?? '???';
 
   return (
     <div className="voting">

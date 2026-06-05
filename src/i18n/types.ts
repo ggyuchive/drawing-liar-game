@@ -1,7 +1,14 @@
 export type LocaleUI = {
   common: {
-    copyLink: string;
+    copyCode: string;
+    copied: string;
     leave: string;
+  };
+  howTo: {
+    openLabel: string;
+    title: string;
+    steps: ReadonlyArray<string>;
+    close: string;
   };
   joinLobby: {
     tagline: string;
@@ -18,6 +25,7 @@ export type LocaleUI = {
     rounds: string;
     turnsPerPlayer: string;
     keywordLanguage: string;
+    keywordDeck: string;
     startGame: string;
     needMorePlayers: (n: number) => string;
     waiting: string;
@@ -25,13 +33,36 @@ export type LocaleUI = {
   room: {
     roomLabel: string;
     connecting: (code: string) => string;
-    error: (msg: string) => string;
     missingApiKey: string;
+    reconnecting: string;
+    attachFailed: string;
+    backToLobby: string;
+    nameTaken: (name: string) => string;
+  };
+  spectator: {
+    banner: string;
+    votingTitle: string;
+    votingSub: string;
   };
   canvas: {
     yourTurn: string;
     drawing: (name: string) => string;
     waiting: string;
+    brushLabel: string;
+    timerLabel: string;
+    clearBoard: string;
+    clearConfirm: string;
+    clearCancel: string;
+  };
+  chat: {
+    title: string;
+    placeholder: string;
+    send: string;
+    empty: string;
+    typing: (name: string) => string;
+    typingMany: (n: number) => string;
+    show: string;
+    hide: string;
   };
   hud: {
     yourRole: string;
@@ -53,7 +84,6 @@ export type LocaleUI = {
     accusedLabel: string;
     theLiar: string;
     notTheLiar: string;
-    giveGuess: string;
     continueAction: string;
   };
   guessing: {
@@ -66,13 +96,18 @@ export type LocaleUI = {
   };
   roundEnd: {
     title: (n: number, total: number) => string;
-    outcomeCaughtRight: (liar: string, keyword: string) => string;
-    outcomeCaughtWrong: (
+    outcomeCaughtGuessed: (liar: string, keyword: string) => string;
+    outcomeCaughtBlanked: (
       liar: string,
       guess: string,
       keyword: string,
     ) => string;
-    outcomeEscaped: (liar: string, keyword: string) => string;
+    outcomeEscapedGuessed: (liar: string, keyword: string) => string;
+    outcomeEscapedBlanked: (
+      liar: string,
+      guess: string,
+      keyword: string,
+    ) => string;
     nextRound: string;
     seeFinal: string;
     waitingWrap: string;
@@ -86,9 +121,17 @@ export type LocaleUI = {
   };
 };
 
+// A keyword deck: a named, curated list of prompts. Every locale
+// must provide a `general` deck (the fallback); extra decks are
+// optional and surface in the in-room lobby's deck selector.
+export type KeywordDeck = {
+  name: string;
+  words: ReadonlyArray<string>;
+};
+
 export type Locale = {
   code: string;
   name: string;
-  keywords: ReadonlyArray<string>;
+  keywords: Record<string, KeywordDeck>;
   ui: LocaleUI;
 };

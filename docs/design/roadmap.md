@@ -97,7 +97,7 @@ In scope:
 
 Plans:
 - Rules spec: [`rules-v1.md`](rules-v1.md)
-- Execution: [`tasks/active/20260604-quality-pass-todo.md`](../tasks/active/20260604-quality-pass-todo.md)
+- Execution: [`tasks/archive/20260604-quality-pass-todo.md`](../tasks/archive/20260604-quality-pass-todo.md)
 
 **Success criterion:** A group of 4–6 friends play three rounds in
 a row without anyone saying "the UX is rough." The brush meter
@@ -136,7 +136,7 @@ In scope:
   real-time interaction.
 
 Plan:
-[`tasks/active/20260604-v1-release-todo.md`](../tasks/active/20260604-v1-release-todo.md)
+[`tasks/archive/20260604-v1-release-todo.md`](../tasks/archive/20260604-v1-release-todo.md)
 
 **Success criterion:** A clean Lighthouse PWA-ish report; the app
 loads on the four major browsers; the `LICENSE` and `CONTRIBUTING`
@@ -185,7 +185,9 @@ each item.
 
 ## Tasks
 
-- [`tasks/active/20260604-quality-pass-todo.md`](../tasks/active/20260604-quality-pass-todo.md)
+- [`tasks/archive/20260604-quality-pass-todo.md`](../tasks/archive/20260604-quality-pass-todo.md)
   — Phase 3 execution plan.
-- [`tasks/active/20260604-v1-release-todo.md`](../tasks/active/20260604-v1-release-todo.md)
+- [`tasks/archive/20260604-v1-release-todo.md`](../tasks/archive/20260604-v1-release-todo.md)
   — Phase 4 + Phase 5 execution plan.
+- [`tasks/active/20260605-post-v1-backlog.md`](../tasks/active/20260605-post-v1-backlog.md)
+  — organized, sized backlog of post-v1.0 candidates.

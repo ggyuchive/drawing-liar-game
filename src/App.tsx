@@ -24,10 +24,32 @@ function writeHash(room: string | null) {
   }
 }
 
+const NAME_KEY = 'drawing-liar-game.name';
+
+// The active name is per-tab (sessionStorage), so two users testing in
+// tabs of one browser don't clobber each other and a reload keeps the
+// right name. localStorage is only a prefill default for a fresh tab.
+function readName(): string {
+  try {
+    return sessionStorage.getItem(NAME_KEY) ?? localStorage.getItem(NAME_KEY) ?? '';
+  } catch {
+    return '';
+  }
+}
+
+function writeName(name: string) {
+  try {
+    sessionStorage.setItem(NAME_KEY, name);
+    localStorage.setItem(NAME_KEY, name);
+  } catch {
+    // storage unavailable — name just won't persist
+  }
+}
+
 export default function App() {
   const [route, setRoute] = useState<RouteState>(() => ({
     room: readHash().room,
-    name: localStorage.getItem('drawing-liar-game.name') ?? '',
+    name: readName(),
   }));
 
   useEffect(() => {
@@ -39,7 +61,7 @@ export default function App() {
   }, []);
 
   const handleEnter = (name: string, room: string) => {
-    localStorage.setItem('drawing-liar-game.name', name);
+    writeName(name);
     writeHash(room);
     setRoute({ room, name });
   };

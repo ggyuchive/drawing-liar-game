@@ -76,7 +76,9 @@ export default function Lobby({ initialName, initialRoom, onEnter }: Props) {
             onChange={(e) => setRoom(e.target.value.toUpperCase())}
             placeholder={t.roomCodePlaceholder}
             maxLength={8}
-            onKeyDown={(e) => e.key === 'Enter' && handleJoin()}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.nativeEvent.isComposing) handleJoin();
+            }}
           />
           <button onClick={handleJoin} disabled={!trimmedName || !room.trim()}>
             {t.join}

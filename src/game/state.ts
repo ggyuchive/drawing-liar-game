@@ -24,37 +24,33 @@ export function normalizeGuess(s: string): string {
   return s.trim().toLowerCase();
 }
 
-export type Outcome =
-  | 'liarEscaped'
-  | 'liarCaughtGuessRight'
-  | 'liarCaughtGuessWrong';
+export type ScoreOutcome = {
+  caught: boolean;
+  guessed: boolean;
+};
+
+// The finalised 2×2 table from docs/design/rules-v1.md
+// § "Scoring — finalised 2×2". Two axes (caught × guessed), four
+// cells, returned as [liarDelta, nonLiarDelta].
+function deltas(outcome: ScoreOutcome): [number, number] {
+  const { caught, guessed } = outcome;
+  if (caught && guessed) return [1, 1];
+  if (caught && !guessed) return [0, 2];
+  if (!caught && guessed) return [3, 0];
+  return [2, 1];
+}
 
 export function applyScores(
-  outcome: Outcome,
+  outcome: ScoreOutcome,
   playerOrder: ReadonlyArray<string>,
   liarId: string,
   scores: Record<string, number>,
 ): Record<string, number> {
+  const [liarDelta, nonLiarDelta] = deltas(outcome);
   const next: Record<string, number> = {};
   for (const id of playerOrder) {
     const prev = scores[id] ?? 0;
-    if (id === liarId) {
-      const delta =
-        outcome === 'liarEscaped'
-          ? 2
-          : outcome === 'liarCaughtGuessRight'
-            ? 1
-            : 0;
-      next[id] = prev + delta;
-    } else {
-      const delta =
-        outcome === 'liarEscaped'
-          ? 0
-          : outcome === 'liarCaughtGuessRight'
-            ? 1
-            : 2;
-      next[id] = prev + delta;
-    }
+    next[id] = prev + (id === liarId ? liarDelta : nonLiarDelta);
   }
   return next;
 }

@@ -29,7 +29,7 @@ real friends sit down to play:
 
 This doc captures the rule set we'll ship in v1.0. Implementation
 lives in
-[`tasks/active/20260604-quality-pass-todo.md`](../tasks/active/20260604-quality-pass-todo.md).
+[`tasks/archive/20260604-quality-pass-todo.md`](../tasks/archive/20260604-quality-pass-todo.md).
 
 ### Goals
 
@@ -343,6 +343,6 @@ silently introduced.
 ## Tasks
 
 Implementation lives in
-[`tasks/active/20260604-quality-pass-todo.md`](../tasks/active/20260604-quality-pass-todo.md)
+[`tasks/archive/20260604-quality-pass-todo.md`](../tasks/archive/20260604-quality-pass-todo.md)
 — Tasks 1 (brush quota), 2 (chat), 3 (always-guess + 2×2
 scoring).

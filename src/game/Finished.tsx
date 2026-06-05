@@ -16,7 +16,7 @@ export default function Finished({
 }: Props) {
   const t = useT().finished;
   const nameFor = (id: string) =>
-    presences.find((p) => p.clientID === id)?.presence.name ?? '???';
+    presences.find((p) => p.presence.uid === id)?.presence.name ?? '???';
   const ranked = Object.entries(game.scores).sort((a, b) => b[1] - a[1]);
   const winnerScore = ranked[0]?.[1] ?? 0;
 

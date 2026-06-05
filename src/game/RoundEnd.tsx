@@ -19,19 +19,22 @@ export default function RoundEnd({
   const t = useT().roundEnd;
   const { round, scores, config } = game;
   const nameFor = (id: string) =>
-    presences.find((p) => p.clientID === id)?.presence.name ?? '???';
+    presences.find((p) => p.presence.uid === id)?.presence.name ?? '???';
 
   const ranked = Object.entries(scores).sort((a, b) => b[1] - a[1]);
   const liarName = nameFor(round.liarId);
   const lastRound = round.index >= config.totalRounds;
 
+  // Four cells of the 2×2 table (caught × guessed).
   let outcomeText: string;
-  if (round.liarGuess) {
+  if (round.wasCaught) {
     outcomeText = round.guessCorrect
-      ? t.outcomeCaughtRight(liarName, round.keyword)
-      : t.outcomeCaughtWrong(liarName, round.liarGuess, round.keyword);
+      ? t.outcomeCaughtGuessed(liarName, round.keyword)
+      : t.outcomeCaughtBlanked(liarName, round.liarGuess, round.keyword);
   } else {
-    outcomeText = t.outcomeEscaped(liarName, round.keyword);
+    outcomeText = round.guessCorrect
+      ? t.outcomeEscapedGuessed(liarName, round.keyword)
+      : t.outcomeEscapedBlanked(liarName, round.liarGuess, round.keyword);
   }
 
   return (

@@ -20,7 +20,7 @@ export default function Guessing({
   const [guess, setGuess] = useState('');
   const isLiar = !!myActorID && myActorID === round.liarId;
   const liarName =
-    presences.find((p) => p.clientID === round.liarId)?.presence.name ?? '???';
+    presences.find((p) => p.presence.uid === round.liarId)?.presence.name ?? '???';
 
   const handleSubmit = () => {
     if (!isLiar) return;
@@ -48,7 +48,9 @@ export default function Guessing({
           value={guess}
           onChange={(e) => setGuess(e.target.value)}
           placeholder={t.placeholder}
-          onKeyDown={(e) => e.key === 'Enter' && handleSubmit()}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && !e.nativeEvent.isComposing) handleSubmit();
+          }}
           autoFocus
         />
         <button

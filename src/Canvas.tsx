@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useDocument, type JSONArray, type JSONObject } from '@yorkie-js/react';
 import { useT } from './i18n';
 import type { CanvasPresence, Game, Point, Stroke } from './types';
@@ -17,19 +17,37 @@ type Props = {
   strokes: JSONArray<JSONObject<Stroke>>;
   isMyTurn: boolean;
   drawerName: string;
+  isHost: boolean;
+  myUid: string;
+  myColor: string;
+  highlightId?: string | null;
   onStrokeEnd: () => void;
+  onClearBoard: () => void;
 };
 
 export default function Canvas({
   strokes,
   isMyTurn,
   drawerName,
+  isHost,
+  myUid,
+  myColor,
+  highlightId,
   onStrokeEnd,
+  onClearBoard,
 }: Props) {
   const { update } = useDocument<DocRoot, CanvasPresence>();
   const t = useT().canvas;
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const drawingRef = useRef<{ id: string; last: Point } | null>(null);
+  const [confirmClear, setConfirmClear] = useState(false);
+
+  // When the turn rotates away mid-stroke (e.g. the turn timer or
+  // brush quota fired the advance), drop the in-flight stroke so the
+  // drawer can't keep appending points after their turn ended.
+  useEffect(() => {
+    if (!isMyTurn) drawingRef.current = null;
+  }, [isMyTurn]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -45,6 +63,8 @@ export default function Canvas({
     for (const stroke of strokes) {
       const points = stroke.points;
       if (points.length === 0) continue;
+      ctx.globalAlpha =
+        highlightId && stroke.authorId !== highlightId ? 0.15 : 1;
       ctx.strokeStyle = stroke.color;
       ctx.lineWidth = stroke.size;
       ctx.beginPath();
@@ -61,7 +81,8 @@ export default function Canvas({
         ctx.stroke();
       }
     }
-  }, [strokes, strokes.length]);
+    ctx.globalAlpha = 1;
+  }, [strokes, strokes.length, highlightId]);
 
   const getCanvasPoint = (e: React.PointerEvent<HTMLCanvasElement>): Point => {
     const canvas = canvasRef.current!;
@@ -74,6 +95,17 @@ export default function Canvas({
     };
   };
 
+  const finishStroke = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    if (!drawingRef.current) return;
+    try {
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    } catch {
+      // pointer may already be released (e.g. budget cutoff)
+    }
+    drawingRef.current = null;
+    onStrokeEnd();
+  };
+
   const handlePointerDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
     if (!isMyTurn) return;
     if (drawingRef.current) return;
@@ -82,11 +114,13 @@ export default function Canvas({
     const id = generateId();
     drawingRef.current = { id, last: point };
 
-    update((root, presence) => {
-      const color = presence.get('color');
+    update((root) => {
+      // A fresh turn already started the budget; never below empty.
+      if (root.game.round.brushUsedPx >= root.game.round.brushBudgetPx) return;
       root.strokes.push({
         id,
-        color,
+        authorId: myUid,
+        color: myColor,
         size: 4,
         points: [point],
       } as JSONObject<Stroke>);
@@ -100,35 +134,70 @@ export default function Canvas({
     const dx = point.x - current.last.x;
     const dy = point.y - current.last.y;
     if (dx * dx + dy * dy < POINT_THRESHOLD_SQ) return;
+    const segLen = Math.hypot(dx, dy);
     current.last = point;
 
+    let depleted = false;
     update((root) => {
+      const round = root.game.round;
+      round.brushUsedPx = round.brushUsedPx + segLen;
       for (let i = root.strokes.length - 1; i >= 0; i--) {
         if (root.strokes[i].id === current.id) {
           root.strokes[i].points.push(point);
-          return;
+          break;
         }
       }
+      if (round.brushUsedPx >= round.brushBudgetPx) depleted = true;
     });
+
+    // Budget exhausted: end the stroke in place and advance the turn.
+    if (depleted) finishStroke(e);
   };
 
   const handlePointerUp = (e: React.PointerEvent<HTMLCanvasElement>) => {
-    if (!drawingRef.current) return;
-    e.currentTarget.releasePointerCapture(e.pointerId);
-    drawingRef.current = null;
-    onStrokeEnd();
+    finishStroke(e);
   };
 
   return (
     <div className="canvas">
-      <div className="canvas__hud">
-        {isMyTurn ? (
-          <span className="canvas__hudMine">{t.yourTurn}</span>
-        ) : (
-          <span className="canvas__hudWait">
-            {drawerName ? t.drawing(drawerName) : t.waiting}
-          </span>
-        )}
+      <div className="canvas__bar">
+        <div className="canvas__hud">
+          {isMyTurn ? (
+            <span className="canvas__hudMine">{t.yourTurn}</span>
+          ) : (
+            <span className="canvas__hudWait">
+              {drawerName ? t.drawing(drawerName) : t.waiting}
+            </span>
+          )}
+        </div>
+        {isHost &&
+          (confirmClear ? (
+            <span className="canvas__clearConfirm">
+              {t.clearConfirm}
+              <button
+                className="canvas__clearYes"
+                onClick={() => {
+                  onClearBoard();
+                  setConfirmClear(false);
+                }}
+              >
+                {t.clearBoard}
+              </button>
+              <button
+                className="canvas__clearNo"
+                onClick={() => setConfirmClear(false)}
+              >
+                {t.clearCancel}
+              </button>
+            </span>
+          ) : (
+            <button
+              className="canvas__clear"
+              onClick={() => setConfirmClear(true)}
+            >
+              {t.clearBoard}
+            </button>
+          ))}
       </div>
       <canvas
         ref={canvasRef}
@@ -136,6 +205,9 @@ export default function Canvas({
         height={CANVAS_HEIGHT}
         className={
           isMyTurn ? 'canvas__surface' : 'canvas__surface canvas__surface--off'
+        }
+        aria-label={
+          isMyTurn ? t.yourTurn : drawerName ? t.drawing(drawerName) : t.waiting
         }
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}

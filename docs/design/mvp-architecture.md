@@ -241,5 +241,5 @@ start a new one. Document this as a known limitation.
 
 ## Tasks
 
-See [`docs/tasks/active/20260604-mvp-game-flow-todo.md`](../tasks/active/20260604-mvp-game-flow-todo.md)
+See [`docs/tasks/archive/20260604-mvp-game-flow-todo.md`](../tasks/archive/20260604-mvp-game-flow-todo.md)
 for the step-by-step execution plan.
