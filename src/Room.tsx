@@ -37,7 +37,13 @@ import {
   pickPlayerOrder,
   resolveTurnAdvance,
 } from './game/engine';
-import { LOCALE_LIST, pickKeyword, useLocale, useT } from './i18n';
+import {
+  LOCALE_LIST,
+  keywordAt,
+  pickKeywordIndex,
+  useLocale,
+  useT,
+} from './i18n';
 import type {
   CanvasPresence,
   ChatMessage,
@@ -55,6 +61,7 @@ import {
 import {
   dedupeByUid,
   generateId,
+  getSessionSpectator,
   getSessionUid,
   PLAYER_COLORS,
   randomPlayerColor,
@@ -105,7 +112,6 @@ function RoomInner({
   const [highlightId, setHighlightId] = useState<string | null>(null);
   const [howToOpen, setHowToOpen] = useState(false);
   const [copied, setCopied] = useState(false);
-  const [toasts, setToasts] = useState<Array<{ id: string; text: string }>>([]);
   const ready = !loading && !error;
   const hostId = ready ? root.game.hostId : '';
   const disconnected = connection === StreamConnectionStatus.Disconnected;
@@ -117,16 +123,36 @@ function RoomInner({
   // writes converge.
   useEffect(() => {
     if (loading || error || !myActorID) return;
-    const elected = electHost(
-      presences.map((p) => p.presence.uid),
-      hostId,
-    );
+    // Prefer a non-spectator as host (the host plays); fall back to any
+    // present uid only if everyone is a spectator.
+    const nonSpectators = presences
+      .filter((p) => !p.presence.spectator)
+      .map((p) => p.presence.uid);
+    const pool = nonSpectators.length
+      ? nonSpectators
+      : presences.map((p) => p.presence.uid);
+    const elected = electHost(pool, hostId);
     // No change needed, or it's not my job to write it.
     if (!elected || elected === hostId || myActorID !== elected) return;
     update((r) => {
       r.game.hostId = elected;
     });
   }, [loading, error, myActorID, hostId, presences, update]);
+
+  // The host can't be a spectator: if I'm the host but marked as a
+  // spectator (e.g. an all-spectator room promoted me), clear it so I
+  // become a player.
+  const iAmSpectatorNow =
+    presences.find((p) => p.presence.uid === myActorID)?.presence.spectator ??
+    false;
+  useEffect(() => {
+    if (loading || error || !myActorID) return;
+    if (myActorID === hostId && iAmSpectatorNow) {
+      update((_r, presence) => {
+        presence.set({ spectator: false });
+      });
+    }
+  }, [loading, error, myActorID, hostId, iAmSpectatorNow, update]);
 
   // Adopt the color the game assigned to me. Colors are assigned in
   // the document at game start (so they're distinct and stable for
@@ -185,60 +211,78 @@ function RoomInner({
     };
   }, [loading, error, update, myActorID, myName]);
 
-  // Toast when a player leaves. Keep the latest names/fns in a ref so
-  // the detector effect only depends on *who* is present, not on
-  // every render. A short grace avoids false alarms from a brief
-  // presence blip (the keepalive usually re-asserts within it).
+  // Announce joins/leaves as chat messages. The host owns the writes
+  // (so each event appears once for everyone); a short grace on leaves
+  // avoids spam from a brief presence blip. Latest writer/name context
+  // is kept in a ref so the detector only depends on *who* is present.
   const liveUidList = ready ? presences.map((p) => p.presence.uid) : [];
   const liveKey = [...new Set(liveUidList)].sort().join(',');
-  const leaveCtxRef = useRef<{
-    roster: Record<string, string>;
-    playerLeft: (n: string) => string;
-    myUid: string;
-  }>({ roster: {}, playerLeft: () => '', myUid: '' });
-  const prevUidsRef = useRef<Set<string>>(new Set());
+  const sysCtxRef = useRef<{
+    iAmHost: boolean;
+    nameOf: (uid: string) => string;
+    pushSystem: (kind: 'join' | 'left', uid: string) => void;
+  }>({ iAmHost: false, nameOf: () => '', pushSystem: () => {} });
+  useEffect(() => {
+    const nameOf = (uid: string) =>
+      presences.find((p) => p.presence.uid === uid)?.presence.name ??
+      (ready ? root.roster?.[uid] : '') ??
+      '';
+    sysCtxRef.current = {
+      iAmHost: !!myActorID && myActorID === hostId,
+      nameOf,
+      pushSystem: (kind, uid) => {
+        const name = nameOf(uid);
+        if (!name) return;
+        update((r) => {
+          (r.chat as JSONArray<JSONObject<ChatMessage>>).push({
+            id: generateId(),
+            authorId: '',
+            text: name,
+            at: Date.now(),
+            system: kind,
+          } as JSONObject<ChatMessage>);
+          while (r.chat.length > 200) r.chat.delete?.(0);
+        });
+      },
+    };
+  });
+  // null until the first observation, so we don't announce people who
+  // were already in the room when we joined.
+  const announcedRef = useRef<Set<string> | null>(null);
   const leaveTimersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(
     new Map(),
   );
   useEffect(() => {
-    leaveCtxRef.current = {
-      roster: ready ? root.roster ?? {} : {},
-      playerLeft: t.room.playerLeft,
-      myUid: myActorID,
-    };
-  });
-  useEffect(() => {
     if (loading || error) return;
     const cur = new Set(liveKey ? liveKey.split(',') : []);
+    if (announcedRef.current === null) {
+      announcedRef.current = new Set(cur);
+      return;
+    }
+    const announced = announcedRef.current;
     const timers = leaveTimersRef.current;
-    for (const uid of prevUidsRef.current) {
-      if (cur.has(uid) || uid === leaveCtxRef.current.myUid || timers.has(uid)) {
+    for (const uid of cur) {
+      const pending = timers.get(uid);
+      if (pending) {
+        // Returned within the grace window → a blip, not a leave.
+        clearTimeout(pending);
+        timers.delete(uid);
         continue;
       }
-      const name = leaveCtxRef.current.roster[uid];
-      if (!name) continue;
+      if (!announced.has(uid)) {
+        announced.add(uid);
+        if (sysCtxRef.current.iAmHost) sysCtxRef.current.pushSystem('join', uid);
+      }
+    }
+    for (const uid of announced) {
+      if (cur.has(uid) || timers.has(uid)) continue;
       const timer = setTimeout(() => {
         timers.delete(uid);
-        const id = generateId();
-        setToasts((ts) => [
-          ...ts,
-          { id, text: leaveCtxRef.current.playerLeft(name) },
-        ]);
-        setTimeout(
-          () => setToasts((ts) => ts.filter((x) => x.id !== id)),
-          4000,
-        );
+        announced.delete(uid);
+        if (sysCtxRef.current.iAmHost) sysCtxRef.current.pushSystem('left', uid);
       }, 4000);
       timers.set(uid, timer);
     }
-    for (const uid of cur) {
-      const tm = timers.get(uid);
-      if (tm) {
-        clearTimeout(tm);
-        timers.delete(uid);
-      }
-    }
-    prevUidsRef.current = cur;
   }, [liveKey, loading, error]);
   useEffect(() => {
     const timers = leaveTimersRef.current;
@@ -457,6 +501,7 @@ function RoomInner({
           color: root.game.colors?.[uid] ?? '#888888',
           typing: false,
           lastSeen: 0,
+          spectator: false,
         },
       }));
   const displayPresences = [...uniquePresences, ...ghostPresences];
@@ -492,23 +537,28 @@ function RoomInner({
   // Side profiles: the round's players (or everyone in the lobby),
   // capped at 8. Filled left, right, left, right… so the columns
   // grow evenly.
+  // Profiles list only the *currently present* players (live, not the
+  // ghost-resolved set) so someone leaving disappears from everyone's
+  // panel right away.
   const order = root.game.round.playerOrder;
   const profileSource = order.length
     ? order
-        .map((id) => displayPresences.find((p) => p.presence.uid === id))
+        .map((id) => uniquePresences.find((p) => p.presence.uid === id))
         .filter(
           (p): p is { clientID: string; presence: CanvasPresence } => !!p,
         )
-    : displayPresences;
+    : uniquePresences.filter((p) => !p.presence.spectator);
   const profiles = profileSource.slice(0, 8);
   const showScores = root.game.phase !== 'lobby';
 
   const drawingUid = phase === 'drawing' && drawerId ? drawerId : null;
+  const hostUid = root.game.hostId;
 
   const renderProfile = (presence: CanvasPresence) => {
     const uid = presence.uid;
     const active = highlightId === uid;
     const isDrawing = uid === drawingUid;
+    const isRoomHost = uid === hostUid;
     const cls =
       'profile' +
       (active ? ' profile--active' : '') +
@@ -525,6 +575,11 @@ function RoomInner({
           className="profile__dot"
           style={{ background: presence.color }}
         />
+        {isRoomHost && (
+          <span className="profile__host" aria-label="host">
+            👑
+          </span>
+        )}
         <span className="profile__name">
           {presence.name}
           {uid === myActorID ? ' (me)' : ''}
@@ -541,6 +596,22 @@ function RoomInner({
         )}
       </button>
     );
+  };
+
+  // When the last present player leaves, wipe the room so the next
+  // visitor to this code gets a clean lobby (the React SDK doesn't
+  // expose true document removal). A momentarily-backgrounded peer may
+  // be uncounted — acceptable for real multi-device play.
+  const handleLeave = () => {
+    if (uniquePresences.length <= 1) {
+      update((r) => {
+        r.game = initialGame() as unknown as JSONObject<Game>;
+        while (r.strokes.length > 0) r.strokes.delete?.(0);
+        while (r.chat.length > 0) r.chat.delete?.(0);
+        r.roster = {};
+      });
+    }
+    onLeave();
   };
 
   return (
@@ -602,7 +673,7 @@ function RoomInner({
               {chatPos === 'side' ? t.chat.dockBottom : t.chat.dockSide}
             </button>
           )}
-          <button className="room__leave" onClick={onLeave}>
+          <button className="room__leave" onClick={handleLeave}>
             {t.common.leave}
           </button>
         </div>
@@ -635,16 +706,6 @@ function RoomInner({
           />
         )}
       </div>
-
-      {toasts.length > 0 && (
-        <div className="toasts" role="status" aria-live="polite">
-          {toasts.map((toast) => (
-            <div key={toast.id} className="toast">
-              {toast.text}
-            </div>
-          ))}
-        </div>
-      )}
 
       {howToOpen && <HowToModal onClose={() => setHowToOpen(false)} />}
     </div>
@@ -689,10 +750,11 @@ function RoomInner({
     );
     const onStart = () => {
       if (!isHost) return;
-      // First 8 by join order play; later joiners stay spectators.
-      // Shuffle only the chosen players for a fair turn order.
+      // First 8 non-spectators by join order play; the rest watch.
       const order = pickPlayerOrder(
-        uniquePresences.map((p) => p.presence.uid),
+        uniquePresences
+          .filter((p) => !p.presence.spectator)
+          .map((p) => p.presence.uid),
         shuffle,
       );
       if (order.length < 3) return;
@@ -706,12 +768,16 @@ function RoomInner({
         if (!(r.game.config.brushBudgetPx > 0)) {
           r.game.config.brushBudgetPx = DEFAULT_BRUSH_BUDGET_PX;
         }
+        const kwDeck = r.game.config.keywordDeck;
+        const kwIndex = pickKeywordIndex(
+          r.game.config.keywordLanguage,
+          kwDeck,
+        );
         r.game.round = {
           index: 1,
-          keyword: pickKeyword(
-            r.game.config.keywordLanguage,
-            r.game.config.keywordDeck,
-          ),
+          keyword: keywordAt(r.game.config.keywordLanguage, kwDeck, kwIndex),
+          keywordDeck: kwDeck,
+          keywordIndex: kwIndex,
           liarId,
           playerOrder: order,
           turnIndex: 0,
@@ -738,7 +804,7 @@ function RoomInner({
           <InRoomLobby
             isHost={isHost}
             config={root.game.config}
-            presences={displayPresences}
+            presences={uniquePresences}
             onConfigChange={onConfigChange}
             onStart={onStart}
           />
@@ -778,7 +844,7 @@ function RoomInner({
         return withBoard(
           <Reveal
             round={root.game.round}
-            isHost={isHost && !spectating}
+            isHost={isHost}
             presences={displayPresences}
             onContinue={onContinue}
           />,
@@ -818,19 +884,29 @@ function RoomInner({
         const onNext = () => {
           if (!isHost) return;
           const order = pickPlayerOrder(
-            uniquePresences.map((p) => p.presence.uid),
+            uniquePresences
+              .filter((p) => !p.presence.spectator)
+              .map((p) => p.presence.uid),
             shuffle,
           );
           if (order.length < 3) return;
           const liarId = order[Math.floor(Math.random() * order.length)];
           update((r) => {
             const nextIndex = r.game.round.index + 1;
+            const kwDeck = r.game.config.keywordDeck;
+            const kwIndex = pickKeywordIndex(
+              r.game.config.keywordLanguage,
+              kwDeck,
+            );
             r.game.round = {
               index: nextIndex,
-              keyword: pickKeyword(
+              keyword: keywordAt(
                 r.game.config.keywordLanguage,
-                r.game.config.keywordDeck,
+                kwDeck,
+                kwIndex,
               ),
+              keywordDeck: kwDeck,
+              keywordIndex: kwIndex,
               liarId,
               playerOrder: order,
               turnIndex: 0,
@@ -845,7 +921,10 @@ function RoomInner({
             };
             while (r.strokes.length > 0) r.strokes.delete?.(0);
             for (const id of order) {
-              if (!(id in r.game.scores)) r.game.scores[id] = 0;
+              // Read access (not `in`, which is unreliable on the
+              // Yorkie proxy and was resetting every score to 0 each
+              // round). Only seed genuinely-new players at 0.
+              if (r.game.scores[id] === undefined) r.game.scores[id] = 0;
             }
             // Keep existing players' colors; give any newcomer an
             // unused one so the per-game assignment stays stable.
@@ -866,7 +945,7 @@ function RoomInner({
         return withBoard(
           <RoundEnd
             game={root.game}
-            isHost={isHost && !spectating}
+            isHost={isHost}
             presences={displayPresences}
             onNext={onNext}
             onFinish={onFinish}
@@ -951,6 +1030,8 @@ export default function Room({ room, name, onLeave }: Props) {
   const myColor = useMemo(() => randomPlayerColor(), []);
   // Stable per-tab identity; survives reload and reconnect.
   const myUid = useMemo(() => getSessionUid(), []);
+  // Chosen on the join screen (persisted per tab so a reload keeps it).
+  const startSpectator = useMemo(() => getSessionSpectator(), []);
 
   if (!API_KEY) {
     return <MissingApiKeyHint />;
@@ -974,6 +1055,7 @@ export default function Room({ room, name, onLeave }: Props) {
           color: myColor,
           typing: false,
           lastSeen: 0,
+          spectator: startSpectator,
         }}
       >
         <RoomInner room={room} myUid={myUid} myName={name} onLeave={onLeave} />

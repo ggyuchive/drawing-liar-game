@@ -70,6 +70,7 @@ const en: Locale = {
       orJoinWithCode: 'or join with a code',
       roomCodePlaceholder: 'ROOM CODE',
       join: 'Join',
+      spectate: 'Spectate',
       languageLabel: 'Language',
     },
     inRoomLobby: {
@@ -82,6 +83,7 @@ const en: Locale = {
       needMorePlayers: (n) =>
         `Need ${n} more player${n === 1 ? '' : 's'}`,
       waiting: 'Waiting for host to start…',
+      spectatorsLabel: (n) => `${n} spectator${n === 1 ? '' : 's'}`,
     },
     room: {
       roomLabel: 'Room',
@@ -94,7 +96,6 @@ const en: Locale = {
       backToLobby: 'Back to lobby',
       nameTaken: (name) =>
         `The name "${name}" is already taken in this room. Pick another.`,
-      playerLeft: (name) => `${name} left the room.`,
       pausedTitle: 'Paused',
       pausedSub: 'Need at least 3 players. Waiting for people to (re)join…',
     },
@@ -121,6 +122,8 @@ const en: Locale = {
       hide: 'Hide chat',
       dockSide: 'Chat →',
       dockBottom: 'Chat ↓',
+      joined: (name) => `${name} joined`,
+      left: (name) => `${name} left`,
     },
     hud: {
       yourRole: 'Your role',

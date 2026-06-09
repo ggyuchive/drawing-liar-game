@@ -12,7 +12,13 @@ export type ChatMessage = {
   id: string;
   authorId: string;
   text: string;
+  // Sender's epoch, kept only for ordering/cap. The DISPLAYED time is
+  // each viewer's own clock when they first see the message (sender
+  // clocks can't be trusted), so every viewer sees a consistent,
+  // monotonic timeline.
   at: number;
+  // Set on system notices ("joined" / "left"); `text` holds the name.
+  system?: 'join' | 'left';
 };
 
 export type Phase =
@@ -35,7 +41,12 @@ export type GameConfig = {
 
 export type Round = {
   index: number;
+  // Canonical keyword text in the config language (used to check the
+  // liar's guess). For DISPLAY, resolve keywordDeck+keywordIndex in the
+  // viewer's own language so the shown word follows the UI language.
   keyword: string;
+  keywordDeck: string;
+  keywordIndex: number;
   liarId: string;
   playerOrder: Array<string>;
   turnIndex: number;
@@ -71,6 +82,9 @@ export type CanvasPresence = {
   // tab re-asserts its presence (otherwise the heartbeat stalls, the
   // server reclaims the session, and peers see the player drop).
   lastSeen: number;
+  // Opted to watch only — excluded from the player count, the side
+  // profiles, and play. Toggled in the waiting room.
+  spectator: boolean;
 };
 
 export const DEFAULT_BRUSH_BUDGET_PX = 1500;
@@ -84,6 +98,8 @@ export const GUESS_TIME_MS = 30_000;
 const emptyRound = (): Round => ({
   index: 0,
   keyword: '',
+  keywordDeck: '',
+  keywordIndex: 0,
   liarId: '',
   playerOrder: [],
   turnIndex: 0,

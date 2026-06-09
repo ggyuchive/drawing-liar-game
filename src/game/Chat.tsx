@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useDocument, type JSONArray, type JSONObject } from '@yorkie-js/react';
 import { useT } from '../i18n';
 import type {
@@ -32,12 +32,41 @@ export default function Chat({ myActorID, presences, suppressTyping }: Props) {
   const listRef = useRef<HTMLDivElement | null>(null);
   const typingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const messages = (root.chat ?? []) as unknown as ReadonlyArray<ChatMessage>;
+  const messages = useMemo(
+    () => (root.chat ?? []) as unknown as ReadonlyArray<ChatMessage>,
+    [root.chat],
+  );
+
+  // Stamp each message with the local time it FIRST appears to this
+  // viewer, then show that. Sender device clocks can't be trusted
+  // (they may be hours off), so this gives every viewer a consistent,
+  // monotonic timeline in their own clock.
+  const [seenAt, setSeenAt] = useState<Record<string, number>>({});
+  useEffect(() => {
+    const missing = messages.filter((m) => seenAt[m.id] === undefined);
+    if (missing.length === 0) return;
+    const id = setTimeout(() => {
+      const now = Date.now();
+      setSeenAt((prev) => {
+        const next = { ...prev };
+        for (const m of missing) {
+          if (next[m.id] === undefined) next[m.id] = now;
+        }
+        return next;
+      });
+    }, 0);
+    return () => clearTimeout(id);
+  }, [messages, seenAt]);
 
   const colorFor = (id: string) =>
     presences.find((p) => p.presence.uid === id)?.presence.color ?? 'var(--text)';
   const nameFor = (id: string) =>
     presences.find((p) => p.presence.uid === id)?.presence.name ?? '???';
+  const timeFor = (msgId: string, fallback: number) => {
+    const d = new Date(seenAt[msgId] ?? fallback);
+    const p = (n: number) => String(n).padStart(2, '0');
+    return `[${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}]`;
+  };
 
   useEffect(() => {
     const el = listRef.current;
@@ -92,14 +121,27 @@ export default function Chat({ myActorID, presences, suppressTyping }: Props) {
         {messages.length === 0 ? (
           <p className="chat__empty">{t.empty}</p>
         ) : (
-          messages.map((m) => (
-            <div key={m.id} className="chat__msg">
-              <span className="chat__author" style={{ color: colorFor(m.authorId) }}>
-                {nameFor(m.authorId)}
-              </span>
-              <span className="chat__text">{m.text}</span>
-            </div>
-          ))
+          messages.map((m) =>
+            m.system ? (
+              <div key={m.id} className="chat__sys">
+                <span className="chat__time">
+                  {timeFor(m.id, m.at)}
+                </span>{' '}
+                {m.system === 'join' ? t.joined(m.text) : t.left(m.text)}
+              </div>
+            ) : (
+              <div key={m.id} className="chat__msg">
+                <span className="chat__time">{timeFor(m.id, m.at)}</span>{' '}
+                <span
+                  className="chat__author"
+                  style={{ color: colorFor(m.authorId) }}
+                >
+                  {nameFor(m.authorId)}
+                </span>
+                <span className="chat__text">{m.text}</span>
+              </div>
+            ),
+          )
         )}
       </div>
       <div className="chat__typing">

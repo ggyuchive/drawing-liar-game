@@ -22,6 +22,7 @@ export type LocaleUI = {
     orJoinWithCode: string;
     roomCodePlaceholder: string;
     join: string;
+    spectate: string;
     languageLabel: string;
   };
   inRoomLobby: {
@@ -33,6 +34,7 @@ export type LocaleUI = {
     startGame: string;
     needMorePlayers: (n: number) => string;
     waiting: string;
+    spectatorsLabel: (n: number) => string;
   };
   room: {
     roomLabel: string;
@@ -42,7 +44,6 @@ export type LocaleUI = {
     attachFailed: string;
     backToLobby: string;
     nameTaken: (name: string) => string;
-    playerLeft: (name: string) => string;
     pausedTitle: string;
     pausedSub: string;
   };
@@ -69,6 +70,8 @@ export type LocaleUI = {
     hide: string;
     dockSide: string;
     dockBottom: string;
+    joined: (name: string) => string;
+    left: (name: string) => string;
   };
   hud: {
     yourRole: string;

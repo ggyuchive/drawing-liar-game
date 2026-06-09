@@ -41,3 +41,18 @@ export function pickKeyword(code: string, deck?: string): string {
   if (ks.length === 0) return '';
   return ks[Math.floor(Math.random() * ks.length)];
 }
+
+// Decks are parallel across languages (same index = same concept), so
+// a round stores the deck + index and each client resolves the word in
+// its own language. pickKeywordIndex chooses a random valid index.
+export function pickKeywordIndex(code: string, deck?: string): number {
+  const ks = keywordsFor(code, deck);
+  if (ks.length === 0) return 0;
+  return Math.floor(Math.random() * ks.length);
+}
+
+export function keywordAt(code: string, deck: string, index: number): string {
+  const ks = keywordsFor(code, deck);
+  if (ks.length === 0) return '';
+  return ks[index % ks.length] ?? '';
+}

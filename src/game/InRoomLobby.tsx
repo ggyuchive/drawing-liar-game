@@ -19,7 +19,9 @@ export default function InRoomLobby({
   onStart,
 }: Props) {
   const t = useT().inRoomLobby;
-  const ready = presences.length >= MIN_PLAYERS;
+  const players = presences.filter((p) => !p.presence.spectator);
+  const spectatorCount = presences.length - players.length;
+  const ready = players.length >= MIN_PLAYERS;
   const decks = deckListFor(config.keywordLanguage);
 
   return (
@@ -27,7 +29,7 @@ export default function InRoomLobby({
       <h2 className="lobbyIn__title">{t.title}</h2>
 
       <ul className="lobbyIn__roster">
-        {presences.map(({ clientID, presence }) => (
+        {players.map(({ clientID, presence }) => (
           <li
             key={clientID}
             className="lobbyIn__rosterItem"
@@ -41,6 +43,11 @@ export default function InRoomLobby({
           </li>
         ))}
       </ul>
+      {spectatorCount > 0 && (
+        <p className="lobbyIn__spectators">
+          👁 {t.spectatorsLabel(spectatorCount)}
+        </p>
+      )}
 
       {isHost ? (
         <div className="lobbyIn__hostBox">
@@ -113,7 +120,7 @@ export default function InRoomLobby({
           >
             {ready
               ? t.startGame
-              : t.needMorePlayers(MIN_PLAYERS - presences.length)}
+              : t.needMorePlayers(MIN_PLAYERS - players.length)}
           </button>
         </div>
       ) : (

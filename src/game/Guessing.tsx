@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { LOCALE_LIST, useT } from '../i18n';
+import { keywordAt, LOCALE_LIST, useT } from '../i18n';
 import { GUESS_TIME_MS } from '../types';
 import type { CanvasPresence, Round } from '../types';
 import PhaseTimer from './PhaseTimer';
@@ -39,7 +39,19 @@ export default function Guessing({
   const handleSubmit = () => {
     if (!isLiar) return;
     if (!guess.trim()) return;
-    const correct = normalizeGuess(guess) === normalizeGuess(round.keyword);
+    const g = normalizeGuess(guess);
+    // Accept the answer in ANY language — the decks are parallel, so
+    // the liar guessing "풍차" is right even if the keyword language is
+    // English ("windmill"). Falls back to the stored keyword for old
+    // rounds without a deck/index.
+    const correct = round.keywordDeck
+      ? LOCALE_LIST.some(
+          (l) =>
+            normalizeGuess(
+              keywordAt(l.code, round.keywordDeck, round.keywordIndex),
+            ) === g,
+        )
+      : g === normalizeGuess(round.keyword);
     onSubmit(guess, correct);
   };
 

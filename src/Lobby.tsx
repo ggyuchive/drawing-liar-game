@@ -1,6 +1,10 @@
 import { useState } from 'react';
 import { LOCALE_LIST, useLocale, useT } from './i18n';
-import { generateRoomCode, normalizeRoomCode } from './util';
+import {
+  generateRoomCode,
+  normalizeRoomCode,
+  setSessionSpectator,
+} from './util';
 
 type Props = {
   initialName: string;
@@ -17,12 +21,15 @@ export default function Lobby({ initialName, initialRoom, onEnter }: Props) {
 
   const handleCreate = () => {
     if (!trimmedName) return;
+    // The room creator becomes host, so they always play (never spectate).
+    setSessionSpectator(false);
     onEnter(trimmedName, generateRoomCode());
   };
 
-  const handleJoin = () => {
+  const handleJoin = (asSpectator: boolean) => {
     const code = normalizeRoomCode(room);
     if (!trimmedName || !code) return;
+    setSessionSpectator(asSpectator);
     onEnter(trimmedName, code);
   };
 
@@ -69,19 +76,32 @@ export default function Lobby({ initialName, initialRoom, onEnter }: Props) {
 
         <div className="lobby__divider">{t.orJoinWithCode}</div>
 
-        <div className="lobby__joinRow">
-          <input
-            type="text"
-            value={room}
-            onChange={(e) => setRoom(e.target.value.toUpperCase())}
-            placeholder={t.roomCodePlaceholder}
-            maxLength={8}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && !e.nativeEvent.isComposing) handleJoin();
-            }}
-          />
-          <button onClick={handleJoin} disabled={!trimmedName || !room.trim()}>
+        <input
+          className="lobby__roomInput"
+          type="text"
+          value={room}
+          onChange={(e) => setRoom(e.target.value.toUpperCase())}
+          placeholder={t.roomCodePlaceholder}
+          maxLength={8}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && !e.nativeEvent.isComposing)
+              handleJoin(false);
+          }}
+        />
+        <div className="lobby__joinButtons">
+          <button
+            className="lobby__join"
+            onClick={() => handleJoin(false)}
+            disabled={!trimmedName || !room.trim()}
+          >
             {t.join}
+          </button>
+          <button
+            className="lobby__spectate"
+            onClick={() => handleJoin(true)}
+            disabled={!trimmedName || !room.trim()}
+          >
+            {t.spectate}
           </button>
         </div>
       </div>

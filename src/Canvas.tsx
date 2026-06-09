@@ -35,7 +35,12 @@ export default function Canvas({
   const { update } = useDocument<DocRoot, CanvasPresence>();
   const t = useT().canvas;
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const drawingRef = useRef<{ id: string; last: Point } | null>(null);
+  const drawingRef = useRef<{
+    id: string;
+    start: Point;
+    last: Point;
+    committed: boolean;
+  } | null>(null);
 
   // When the turn rotates away mid-stroke (e.g. the turn timer or
   // brush quota fired the advance), drop the in-flight stroke so the
@@ -106,20 +111,15 @@ export default function Canvas({
     if (drawingRef.current) return;
     e.currentTarget.setPointerCapture(e.pointerId);
     const point = getCanvasPoint(e);
-    const id = generateId();
-    drawingRef.current = { id, last: point };
-
-    update((root) => {
-      // A fresh turn already started the budget; never below empty.
-      if (root.game.round.brushUsedPx >= root.game.round.brushBudgetPx) return;
-      root.strokes.push({
-        id,
-        authorId: myUid,
-        color: myColor,
-        size: 4,
-        points: [point],
-      } as JSONObject<Stroke>);
-    });
+    // Defer creating the stroke until the pointer actually moves, so a
+    // stray click (press + release with no drag) draws nothing and
+    // doesn't end the turn.
+    drawingRef.current = {
+      id: generateId(),
+      start: point,
+      last: point,
+      committed: false,
+    };
   };
 
   const handlePointerMove = (e: React.PointerEvent<HTMLCanvasElement>) => {
@@ -132,25 +132,66 @@ export default function Canvas({
     const segLen = Math.hypot(dx, dy);
     current.last = point;
 
+    const wasUncommitted = !current.committed;
     let depleted = false;
+    let blocked = false;
     update((root) => {
       const round = root.game.round;
-      round.brushUsedPx = round.brushUsedPx + segLen;
-      for (let i = root.strokes.length - 1; i >= 0; i--) {
-        if (root.strokes[i].id === current.id) {
-          root.strokes[i].points.push(point);
-          break;
+      if (wasUncommitted) {
+        // First real movement → create the stroke now (start + point).
+        if (round.brushUsedPx >= round.brushBudgetPx) {
+          blocked = true;
+          return;
+        }
+        round.brushUsedPx = round.brushUsedPx + segLen;
+        root.strokes.push({
+          id: current.id,
+          authorId: myUid,
+          color: myColor,
+          size: 4,
+          points: [current.start, point],
+        } as JSONObject<Stroke>);
+      } else {
+        round.brushUsedPx = round.brushUsedPx + segLen;
+        for (let i = root.strokes.length - 1; i >= 0; i--) {
+          if (root.strokes[i].id === current.id) {
+            root.strokes[i].points.push(point);
+            break;
+          }
         }
       }
       if (round.brushUsedPx >= round.brushBudgetPx) depleted = true;
     });
 
+    if (blocked) {
+      // Budget was already empty — nothing was drawn, so just drop it.
+      try {
+        e.currentTarget.releasePointerCapture(e.pointerId);
+      } catch {
+        // already released
+      }
+      drawingRef.current = null;
+      return;
+    }
+    if (wasUncommitted) current.committed = true;
     // Budget exhausted: end the stroke in place and advance the turn.
     if (depleted) finishStroke(e);
   };
 
   const handlePointerUp = (e: React.PointerEvent<HTMLCanvasElement>) => {
-    finishStroke(e);
+    const current = drawingRef.current;
+    if (!current) return;
+    if (current.committed) {
+      finishStroke(e); // a real stroke ended → advance the turn
+    } else {
+      // Click with no drag → ignore entirely (no stroke, no turn change).
+      try {
+        e.currentTarget.releasePointerCapture(e.pointerId);
+      } catch {
+        // already released
+      }
+      drawingRef.current = null;
+    }
   };
 
   return (

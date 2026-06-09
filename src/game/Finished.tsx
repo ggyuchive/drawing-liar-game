@@ -26,8 +26,11 @@ export default function Finished({
       <p className="finished__sub">{t.sub(game.config.totalRounds)}</p>
 
       <ul className="finished__board">
-        {ranked.map(([id, score], idx) => {
+        {ranked.map(([id, score]) => {
           const isWinner = score === winnerScore && score > 0;
+          // Standard competition ranking: tied scores share a rank
+          // (e.g. 1, 2, 2, 4). `ranked` is sorted descending.
+          const rank = ranked.findIndex(([, s]) => s === score) + 1;
           return (
             <li
               key={id}
@@ -37,7 +40,7 @@ export default function Finished({
                   : 'finished__row'
               }
             >
-              <span className="finished__rank">{idx + 1}</span>
+              <span className="finished__rank">{rank}</span>
               <span className="finished__name">
                 {nameFor(id)}
                 {isWinner && <span className="finished__crown">★</span>}

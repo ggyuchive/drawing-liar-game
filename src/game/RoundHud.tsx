@@ -1,4 +1,4 @@
-import { useT } from '../i18n';
+import { keywordAt, useLocale, useT } from '../i18n';
 import type { CanvasPresence, GameConfig, Round } from '../types';
 
 type Props = {
@@ -15,6 +15,12 @@ export default function RoundHud({
   presences,
 }: Props) {
   const t = useT().hud;
+  const { locale } = useLocale();
+  // Show the keyword in the viewer's own language (deck + index are
+  // parallel across languages).
+  const shownKeyword = round.keywordDeck
+    ? keywordAt(locale.code, round.keywordDeck, round.keywordIndex)
+    : round.keyword;
   const isLiar = !!myActorID && myActorID === round.liarId;
   const drawerId =
     round.playerOrder[round.turnIndex % round.playerOrder.length] ?? '';
@@ -34,7 +40,7 @@ export default function RoundHud({
         ) : (
           <>
             <span className="hud__label">{t.keyword}</span>
-            <strong className="hud__keyword">{round.keyword}</strong>
+            <strong className="hud__keyword">{shownKeyword}</strong>
           </>
         )}
       </div>

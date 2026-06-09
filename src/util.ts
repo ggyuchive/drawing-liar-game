@@ -42,6 +42,24 @@ export function generateId(): string {
 // a reconnecting player keeps their identity instead of orphaning.
 const UID_KEY = 'drawing-liar-game.uid';
 
+const SPECTATOR_KEY = 'drawing-liar-game.spectator';
+
+export function setSessionSpectator(v: boolean): void {
+  try {
+    sessionStorage.setItem(SPECTATOR_KEY, v ? '1' : '0');
+  } catch {
+    // sessionStorage unavailable — ignore
+  }
+}
+
+export function getSessionSpectator(): boolean {
+  try {
+    return sessionStorage.getItem(SPECTATOR_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
 export function getSessionUid(): string {
   try {
     const existing = sessionStorage.getItem(UID_KEY);

@@ -28,13 +28,17 @@ export default function Reveal({
   const singleAccused = topIds.length === 1 ? topIds[0] : '';
   const wasLiarCaught = !!singleAccused && singleAccused === round.liarId;
   const maxCount = Math.max(1, maxVotes);
+  // Show the bars most-voted first, top to bottom.
+  const barOrder = [...round.playerOrder].sort(
+    (a, b) => (counts[b] ?? 0) - (counts[a] ?? 0),
+  );
 
   return (
     <div className="reveal">
       <h2 className="reveal__title">{t.title}</h2>
 
       <ul className="reveal__bars">
-        {round.playerOrder.map((id) => {
+        {barOrder.map((id) => {
           const c = counts[id] ?? 0;
           const pct = (c / maxCount) * 100;
           // Highlight whoever leads (both/all of them when it's a tie).

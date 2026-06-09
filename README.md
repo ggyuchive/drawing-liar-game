@@ -5,7 +5,7 @@ built on the [Yorkie JS SDK](https://yorkie.dev). Everyone draws the
 same secret keyword — except one player, the **liar**, who has no idea
 what it is and has to bluff. Spot the liar before they slip away.
 
-> **Play:** _(production URL goes here once deployed)_
+> **Play:** https://drawing-liar-game.vercel.app/
 
 <!-- Add a screenshot or GIF of a round in progress here. -->
 

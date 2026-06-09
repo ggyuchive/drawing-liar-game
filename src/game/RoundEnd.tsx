@@ -1,4 +1,4 @@
-import { useT } from '../i18n';
+import { keywordAt, useLocale, useT } from '../i18n';
 import type { CanvasPresence, Game } from '../types';
 import { roundDeltas } from './state';
 
@@ -18,9 +18,14 @@ export default function RoundEnd({
   onFinish,
 }: Props) {
   const t = useT().roundEnd;
+  const { locale } = useLocale();
   const { round, scores, config } = game;
   const nameFor = (id: string) =>
     presences.find((p) => p.presence.uid === id)?.presence.name ?? '???';
+  // Reveal the keyword in the viewer's own language.
+  const shownKeyword = round.keywordDeck
+    ? keywordAt(locale.code, round.keywordDeck, round.keywordIndex)
+    : round.keyword;
 
   const ranked = Object.entries(scores).sort((a, b) => b[1] - a[1]);
   const liarName = nameFor(round.liarId);
@@ -38,12 +43,12 @@ export default function RoundEnd({
   let outcomeText: string;
   if (round.wasCaught) {
     outcomeText = round.guessCorrect
-      ? t.outcomeCaughtGuessed(liarName, round.keyword)
-      : t.outcomeCaughtBlanked(liarName, round.liarGuess, round.keyword);
+      ? t.outcomeCaughtGuessed(liarName, shownKeyword)
+      : t.outcomeCaughtBlanked(liarName, round.liarGuess, shownKeyword);
   } else {
     outcomeText = round.guessCorrect
-      ? t.outcomeEscapedGuessed(liarName, round.keyword)
-      : t.outcomeEscapedBlanked(liarName, round.liarGuess, round.keyword);
+      ? t.outcomeEscapedGuessed(liarName, shownKeyword)
+      : t.outcomeEscapedBlanked(liarName, round.liarGuess, shownKeyword);
   }
 
   return (
@@ -52,12 +57,16 @@ export default function RoundEnd({
       <p className="roundEnd__outcome">{outcomeText}</p>
 
       <ul className="roundEnd__scoreboard">
-        {ranked.map(([id, score], idx) => {
+        {ranked.map(([id, score]) => {
           const delta = gained[id] ?? 0;
           const prev = score - delta;
+          // Standard competition ranking: tied scores share a rank
+          // (e.g. 1, 2, 2, 4). `ranked` is sorted descending, so the
+          // first index of this score is its rank.
+          const rank = ranked.findIndex(([, s]) => s === score) + 1;
           return (
             <li key={id} className="roundEnd__row">
-              <span className="roundEnd__rank">{idx + 1}</span>
+              <span className="roundEnd__rank">{rank}</span>
               <span className="roundEnd__name">{nameFor(id)}</span>
               <span className="roundEnd__score">
                 {prev}

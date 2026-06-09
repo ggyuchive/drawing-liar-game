@@ -68,6 +68,7 @@ const ko: Locale = {
       orJoinWithCode: '또는 코드로 참가하기',
       roomCodePlaceholder: '방 코드',
       join: '참가',
+      spectate: '관전',
       languageLabel: '언어',
     },
     inRoomLobby: {
@@ -79,6 +80,7 @@ const ko: Locale = {
       startGame: '게임 시작',
       needMorePlayers: (n) => `${n}명 더 필요해요`,
       waiting: '방장이 시작하기를 기다리는 중…',
+      spectatorsLabel: (n) => `관전자 ${n}명`,
     },
     room: {
       roomLabel: '방',
@@ -90,7 +92,6 @@ const ko: Locale = {
       backToLobby: '로비로 돌아가기',
       nameTaken: (name) =>
         `"${name}" 닉네임은 이 방에서 이미 사용 중이에요. 다른 이름을 골라 주세요.`,
-      playerLeft: (name) => `${name} 님이 나갔어요.`,
       pausedTitle: '일시정지',
       pausedSub: '최소 3명이 필요해요. 플레이어가 (다시) 들어오기를 기다리는 중…',
     },
@@ -117,6 +118,8 @@ const ko: Locale = {
       hide: '채팅 닫기',
       dockSide: '채팅 옆으로 →',
       dockBottom: '채팅 아래로 ↓',
+      joined: (name) => `${name} 님이 들어왔어요`,
+      left: (name) => `${name} 님이 나갔어요`,
     },
     hud: {
       yourRole: '내 역할',

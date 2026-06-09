@@ -89,16 +89,35 @@
   letter-spacing: 0.5px;
 }
 
-.lobby__joinRow {
-  display: flex;
-  gap: 8px;
-}
-
-.lobby__joinRow input {
-  flex: 1;
+.lobby__roomInput {
+  width: 100%;
   text-transform: uppercase;
   letter-spacing: 2px;
   font-family: ui-monospace, monospace;
+  margin-bottom: 8px;
+}
+
+.lobby__joinButtons {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.lobby__join {
+  background: var(--accent);
+  color: white;
+  border-color: var(--accent);
+  font-weight: 600;
+  padding: 12px;
+}
+
+.lobby__join:hover:not(:disabled) {
+  filter: brightness(1.05);
+}
+
+.lobby__spectate {
+  padding: 12px;
+  font-weight: 600;
 }
 
 /* ---------- Room ---------- */
@@ -343,6 +362,12 @@
   padding: 16px;
   border: 1px dashed var(--border);
   border-radius: 12px;
+}
+
+.lobbyIn__spectators {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-soft);
 }
 
 /* ---------- Finished (final ranking) ---------- */
@@ -833,13 +858,13 @@
   border: 1px solid var(--border);
   border-radius: 12px;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.06);
-  /* Fill the available width; aspect-ratio derives the height. The
-     max-height keeps it from overflowing tall layouts (room__main
-     scrolls if it ever does). */
+  /* Fill the available width but never break the 3:2 ratio. Capping
+     the *width* (derived from the height limit) instead of the height
+     keeps the ratio intact on short/wide screens. */
   width: 100%;
   height: auto;
   aspect-ratio: 3 / 2;
-  max-height: 70vh;
+  max-width: calc(70vh * 3 / 2);
   touch-action: none;
   cursor: crosshair;
 }
@@ -1019,28 +1044,6 @@
   font-size: 14px;
 }
 
-/* ---------- Toasts (player left, …) ---------- */
-.toasts {
-  position: fixed;
-  bottom: 16px;
-  left: 50%;
-  transform: translateX(-50%);
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  z-index: 60;
-  pointer-events: none;
-}
-
-.toast {
-  background: var(--text);
-  color: var(--bg-elev);
-  padding: 10px 16px;
-  border-radius: 999px;
-  font-size: 14px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
-}
-
 .room__chatToggle,
 .room__chatDock {
   font-size: 13px;
@@ -1085,7 +1088,8 @@
   background: var(--accent-soft);
 }
 
-.profile__turn {
+.profile__turn,
+.profile__host {
   font-size: 16px;
   line-height: 1;
   flex-shrink: 0;
@@ -1271,6 +1275,19 @@
   word-break: break-word;
 }
 
+.chat__time {
+  color: var(--text-soft);
+  font-variant-numeric: tabular-nums;
+  font-size: 12px;
+}
+
+.chat__sys {
+  font-size: 13px;
+  color: var(--text-soft);
+  font-style: italic;
+  text-align: center;
+}
+
 .chat__author {
   font-weight: 600;
   margin-right: 6px;
@@ -1338,16 +1355,26 @@
     flex-direction: column;
   }
 
+  /* Top-align the play area so the HUD (role / drawer / turn) is always
+     visible; the canvas sits below and scrolls into view if needed. */
+  .room__main {
+    align-items: start;
+  }
+
   .chat {
     width: auto;
     border-left: none;
     border-top: 1px solid var(--border);
-    max-height: 40vh;
+    max-height: 30vh;
   }
 
+  /* Keep the brush meter + timer on one row to save vertical space. */
   .phase__gauges {
-    flex-direction: column;
-    align-items: stretch;
+    flex-wrap: wrap;
+  }
+
+  .canvas__surface {
+    max-width: calc(40vh * 3 / 2);
   }
 
   .room__profiles {
@@ -1357,7 +1384,7 @@
     justify-content: center;
     border-right: none;
     border-bottom: 1px solid var(--border);
-    max-height: 28vh;
+    max-height: 20vh;
   }
 
   .profile {
