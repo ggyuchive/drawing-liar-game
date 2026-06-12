@@ -25,8 +25,9 @@ import Finished from './game/Finished';
 import Guessing from './game/Guessing';
 import Reveal from './game/Reveal';
 import RoundEnd from './game/RoundEnd';
-import RoundHud from './game/RoundHud';
+import RoundHud, { type HudRole } from './game/RoundHud';
 import Voting from './game/Voting';
+import { fetchRole, revealRound, startRound } from './game/secrets';
 import { applyScores, shuffle, tallyVotes } from './game/state';
 import {
   assignColors,
@@ -39,8 +40,7 @@ import {
 } from './game/engine';
 import {
   LOCALE_LIST,
-  keywordAt,
-  pickKeywordIndex,
+  deckSizes,
   useLocale,
   useT,
 } from './i18n';
@@ -112,6 +112,17 @@ function RoomInner({
   const [highlightId, setHighlightId] = useState<string | null>(null);
   const [howToOpen, setHowToOpen] = useState(false);
   const [copied, setCopied] = useState(false);
+  // Surfaced when the keyword-secrecy server can't be reached to start
+  // or reveal a round (instead of silently starting a keyword-less one).
+  const [roundError, setRoundError] = useState(false);
+  // This client's own role + keyword for the current round, fetched
+  // per-client from the server (the document withholds them).
+  const [serverRole, setServerRole] = useState<{
+    roundId: string;
+    isLiar: boolean;
+    keywordDeck: string;
+    keywordIndex: number;
+  } | null>(null);
   const ready = !loading && !error;
   const hostId = ready ? root.game.hostId : '';
   const disconnected = connection === StreamConnectionStatus.Disconnected;
@@ -378,6 +389,64 @@ function RoomInner({
 
   const roundIndex = ready ? root.game.round.index : 0;
 
+  // Keyword secrecy. The opaque roundId lets each client ask the server
+  // for its own role; `docHasSecret` is true once the secret lives in
+  // the document (the dev fallback writes it from the start; the reveal
+  // step writes it for everyone), in which case no server fetch is run.
+  const roundId = ready ? root.game.round.roundId ?? '' : '';
+  const docLiarId = ready ? root.game.round.liarId : '';
+  const docKeywordIndex = ready ? root.game.round.keywordIndex : -1;
+  const docHasSecret = !!docLiarId || docKeywordIndex >= 0;
+
+  // Fetch this client's own role + keyword for the drawing phase from
+  // the secrecy server (the document withholds them). setState only ever
+  // runs in the async resolution, so the React-Compiler effect rules are
+  // satisfied. Skipped when the document already carries the secret.
+  useEffect(() => {
+    if (loading || error) return;
+    if (phase !== 'drawing' || !roundId || docHasSecret || !myActorID) return;
+    let cancelled = false;
+    fetchRole(room, myActorID, roundId)
+      .then((view) => {
+        if (cancelled) return;
+        setServerRole(
+          view.isLiar
+            ? { roundId, isLiar: true, keywordDeck: '', keywordIndex: -1 }
+            : {
+                roundId,
+                isLiar: false,
+                keywordDeck: view.keywordDeck,
+                keywordIndex: view.keywordIndex,
+              },
+        );
+      })
+      .catch(() => {
+        // Server unreachable → a visibly blank keyword, not a leak.
+        if (!cancelled) {
+          setServerRole({
+            roundId,
+            isLiar: false,
+            keywordDeck: '',
+            keywordIndex: -1,
+          });
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [loading, error, phase, roundId, docHasSecret, myActorID, room]);
+
+  // Latest reveal context for advanceToReveal, kept in a ref so the
+  // callback (and the timers depending on it) stays stable across
+  // presence churn. Updated every render via the effect below.
+  const revealCtxRef = useRef<{ roundId: string; hasSecret: boolean }>({
+    roundId: '',
+    hasSecret: false,
+  });
+  useEffect(() => {
+    revealCtxRef.current = { roundId, hasSecret: docHasSecret };
+  });
+
   // Voting: the host advances to reveal when everyone present has
   // voted, or after the 30s cap — no manual "reveal" button.
   const votingAllIn =
@@ -392,12 +461,40 @@ function RoomInner({
       return present.length > 0 && present.every((uid) => !!votes[uid]);
     })();
 
-  const advanceToReveal = useCallback(() => {
+  const advanceToReveal = useCallback(async () => {
+    const ctx = revealCtxRef.current;
+    let revealed: {
+      keywordDeck: string;
+      keywordIndex: number;
+      liarId: string;
+    } | null = null;
+    // Secure mode: the document still hides keyword + liar during
+    // voting, so fetch the answer to publish it. A failure keeps the
+    // round in voting (and shows an error) rather than revealing an
+    // empty liar. In the dev fallback the secret is already in the
+    // document, so the call is skipped.
+    if (!ctx.hasSecret) {
+      if (!ctx.roundId || !myActorID) return;
+      try {
+        revealed = await revealRound(room, myActorID, ctx.roundId);
+      } catch {
+        setRoundError(true);
+        return;
+      }
+    }
     update((r) => {
       if (r.game.phase !== 'voting') return;
+      if (revealed) {
+        // The keyword text is never stored — every client localizes it
+        // from deck + index in its OWN language. Only deck/index/liar
+        // are published at reveal.
+        r.game.round.liarId = revealed.liarId;
+        r.game.round.keywordDeck = revealed.keywordDeck;
+        r.game.round.keywordIndex = revealed.keywordIndex;
+      }
       r.game.phase = 'reveal';
     });
-  }, [update]);
+  }, [update, room, myActorID]);
 
   // 30s voting cap (keyed on the round, so casting a vote doesn't
   // reset it). Host owns the write; the host always exists via the
@@ -415,7 +512,10 @@ function RoomInner({
     if (loading || error) return;
     if (!votingAllIn || paused) return;
     if (!(myActorID && myActorID === hostId)) return;
-    advanceToReveal();
+    // Deferred so the (now async) reveal — which may setState on error
+    // — doesn't run synchronously inside the effect body.
+    const id = setTimeout(() => advanceToReveal(), 0);
+    return () => clearTimeout(id);
   }, [loading, error, votingAllIn, paused, myActorID, hostId, advanceToReveal]);
 
   // Guessing: if the liar doesn't submit within 30s, auto-resolve with
@@ -679,6 +779,18 @@ function RoomInner({
         </div>
       </header>
 
+      {roundError && (
+        <div className="room__error" role="alert">
+          <span>{t.room.roundError}</span>
+          <button
+            className="room__errorDismiss"
+            onClick={() => setRoundError(false)}
+          >
+            {t.room.dismiss}
+          </button>
+        </div>
+      )}
+
       <div className={`room__body room__body--chat-${chatPos}`}>
         <div className="room__stage">
           <aside className="room__profiles">
@@ -732,9 +844,6 @@ function RoomInner({
         if (next.turnsPerPlayer !== undefined) {
           r.game.config.turnsPerPlayer = next.turnsPerPlayer;
         }
-        if (next.keywordLanguage !== undefined) {
-          r.game.config.keywordLanguage = next.keywordLanguage;
-        }
         if (next.keywordDeck !== undefined) {
           r.game.config.keywordDeck = next.keywordDeck;
         }
@@ -748,8 +857,8 @@ function RoomInner({
         <div className="phase__panel">{node}</div>
       </div>
     );
-    const onStart = () => {
-      if (!isHost) return;
+    const onStart = async () => {
+      if (!isHost || !myActorID) return;
       // First 8 non-spectators by join order play; the rest watch.
       const order = pickPlayerOrder(
         uniquePresences
@@ -758,7 +867,26 @@ function RoomInner({
         shuffle,
       );
       if (order.length < 3) return;
-      const liarId = order[Math.floor(Math.random() * order.length)];
+      // The host sends EVERY category; the server picks the deck + index
+      // (and the liar) across all of them — players don't choose a
+      // category, and the choice stays hidden from the liar. (`assignment`
+      // is the insecure DEV fallback when the server is unreachable.)
+      const decks = deckSizes(locale.code);
+      let result;
+      try {
+        result = await startRound({
+          room,
+          uid: myActorID,
+          decks: [...decks],
+          playerUids: order,
+        });
+      } catch (e) {
+        console.error('round start failed', e);
+        setRoundError(true);
+        return;
+      }
+      setRoundError(false);
+      const assigned = result.assignment;
       update((r) => {
         // Heal config fields that an older document may be missing,
         // so the new game starts with a real timer and brush budget.
@@ -768,17 +896,17 @@ function RoomInner({
         if (!(r.game.config.brushBudgetPx > 0)) {
           r.game.config.brushBudgetPx = DEFAULT_BRUSH_BUDGET_PX;
         }
-        const kwDeck = r.game.config.keywordDeck;
-        const kwIndex = pickKeywordIndex(
-          r.game.config.keywordLanguage,
-          kwDeck,
-        );
         r.game.round = {
           index: 1,
-          keyword: keywordAt(r.game.config.keywordLanguage, kwDeck, kwIndex),
-          keywordDeck: kwDeck,
-          keywordIndex: kwIndex,
-          liarId,
+          roundId: result.roundId,
+          // The keyword text is never stored; each client localizes it
+          // from deck + index in its own language. deck/index/liar stay
+          // empty in secure mode and are written by the dev fallback so
+          // server-less peers can play.
+          keyword: '',
+          keywordDeck: assigned ? assigned.deck : '',
+          keywordIndex: assigned ? assigned.keywordIndex : -1,
+          liarId: assigned ? assigned.liarId : '',
           playerOrder: order,
           turnIndex: 0,
           strokesDone: 0,
@@ -874,15 +1002,14 @@ function RoomInner({
           <Guessing
             round={root.game.round}
             myActorID={myActorID}
-            keywordLanguage={root.game.config.keywordLanguage}
             presences={displayPresences}
             onSubmit={onSubmit}
           />,
         );
       }
       case 'roundEnd': {
-        const onNext = () => {
-          if (!isHost) return;
+        const onNext = async () => {
+          if (!isHost || !myActorID) return;
           const order = pickPlayerOrder(
             uniquePresences
               .filter((p) => !p.presence.spectator)
@@ -890,24 +1017,31 @@ function RoomInner({
             shuffle,
           );
           if (order.length < 3) return;
-          const liarId = order[Math.floor(Math.random() * order.length)];
+          const decks = deckSizes(locale.code);
+          let result;
+          try {
+            result = await startRound({
+              room,
+              uid: myActorID,
+              decks: [...decks],
+              playerUids: order,
+            });
+          } catch (e) {
+            console.error('next round start failed', e);
+            setRoundError(true);
+            return;
+          }
+          setRoundError(false);
+          const assigned = result.assignment;
           update((r) => {
             const nextIndex = r.game.round.index + 1;
-            const kwDeck = r.game.config.keywordDeck;
-            const kwIndex = pickKeywordIndex(
-              r.game.config.keywordLanguage,
-              kwDeck,
-            );
             r.game.round = {
               index: nextIndex,
-              keyword: keywordAt(
-                r.game.config.keywordLanguage,
-                kwDeck,
-                kwIndex,
-              ),
-              keywordDeck: kwDeck,
-              keywordIndex: kwIndex,
-              liarId,
+              roundId: result.roundId,
+              keyword: '',
+              keywordDeck: assigned ? assigned.deck : '',
+              keywordIndex: assigned ? assigned.keywordIndex : -1,
+              liarId: assigned ? assigned.liarId : '',
               playerOrder: order,
               turnIndex: 0,
               strokesDone: 0,
@@ -988,6 +1122,22 @@ function RoomInner({
           if (!isMyTurn) return;
           advanceTurn();
         };
+        // Role + keyword come from the document when it carries the
+        // secret (dev fallback / post-reveal), otherwise from this
+        // client's own server fetch. null until that fetch resolves.
+        const hudRole: HudRole | null = docHasSecret
+          ? {
+              isLiar: !!myActorID && myActorID === root.game.round.liarId,
+              keywordDeck: root.game.round.keywordDeck,
+              keywordIndex: root.game.round.keywordIndex,
+            }
+          : serverRole && serverRole.roundId === roundId
+            ? {
+                isLiar: serverRole.isLiar,
+                keywordDeck: serverRole.keywordDeck,
+                keywordIndex: serverRole.keywordIndex,
+              }
+            : null;
         return (
           <div className="phase">
             {spectating && (
@@ -996,7 +1146,7 @@ function RoomInner({
             <RoundHud
               round={root.game.round}
               config={root.game.config}
-              myActorID={myActorID}
+              role={hudRole}
               presences={displayPresences}
             />
             <div className="phase__gauges">

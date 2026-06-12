@@ -11,10 +11,29 @@ before reveal — without adding accounts.
 
 **Stack:** Node/TypeScript **Vercel Functions** (`api/`), signed
 tokens (JWT HS256) bound to the existing per-tab `uid`, round secrets
-in a small KV (Vercel KV / Upstash Redis) keyed by `roundId`.
+in **Upstash Redis** (Vercel Marketplace) keyed by `roundId`.
 
-**Prerequisite:** v1.0 is deployed on Vercel (the Functions need the
-same project + env vars).
+**Prerequisite:** v1.0 is deployed on Vercel — done, live at
+`drawing-liar-game.vercel.app`. The Functions ship from the same
+project + env vars.
+
+## Status (2026-06-11)
+
+Code for Tasks 1–6 is **implemented and green** (`pnpm build` typechecks
+`api/` via a new `tsconfig.api.json`; `pnpm lint`; `pnpm test` — the
+`api/_lib` unit tests cover token round-trip/rejection, round
+assignment, and the "`/me` is self-only / no leak" rule). The client
+reads role + keyword from the server during drawing and publishes the
+secret into the document at reveal, with an **insecure DEV fallback**
+(plain `pnpm dev`, no Functions) that keeps local multiplayer working.
+
+**Still open — needs the user / a live environment:**
+- Pre-flight: provision Upstash Redis + set `JWT_SECRET` and the
+  `UPSTASH_*` vars in Vercel (Production + Preview).
+- Live verification with `vercel dev` and on a Preview deploy (the
+  serverless round flow can't be exercised in the local test runner).
+- Task 7's optional multi-user sim extension and Task 8's archive +
+  paired lesson, once verified live.
 
 **Source-of-truth files likely touched:**
 - new: `api/session.ts`, `api/round/start.ts`, `api/round/[roundId]/me.ts`,
@@ -30,17 +49,20 @@ same project + env vars).
 
 ## Pre-flight
 
-- [ ] **Confirm deploy + decide KV.** v1 is live on Vercel. Provision
-  Vercel KV (or Upstash Redis) and note the env var names. Add
-  `JWT_SECRET`, KV connection vars to Vercel (Production + Preview)
-  and to `.env.example`. (Dashboard step — capture in a lesson.)
+- [x] **Provision Upstash Redis.** Done via Vercel's Upstash
+  integration. NOTE: it injects `KV_REST_API_URL` + `KV_REST_API_TOKEN`
+  (not `UPSTASH_REDIS_REST_*`); the server (`api/_lib/rounds.ts`) accepts
+  either pair. KV_* land in Prod+Preview automatically.
+- [ ] **Add `JWT_SECRET` to Vercel (Production + Preview)** — the
+  integration does NOT create it; generate one (`openssl rand -base64 32`)
+  and set it manually, else token signing fails in deploy.
 
 - [ ] **Local dev story.** `vercel dev` serves Functions + the Vite
   app together. Document it in the README "Run locally" once it works.
 
 ## Task 1: Backend scaffolding + shared lib
 
-- [ ] Add deps: a JWT lib (`jose`) and the KV client. Add `api/` to
+- [ ] Add deps: a JWT lib (`jose`) and `@upstash/redis`. Add `api/` to
   the build/lint config so Functions are typechecked.
 - [ ] `api/_lib/token.ts` — `signSession({uid, room})` and
   `verifySession(token) -> {uid, room}` (HS256, `exp`, verify `room`).

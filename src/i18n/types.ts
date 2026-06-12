@@ -29,8 +29,6 @@ export type LocaleUI = {
     title: string;
     rounds: string;
     turnsPerPlayer: string;
-    keywordLanguage: string;
-    keywordDeck: string;
     startGame: string;
     needMorePlayers: (n: number) => string;
     waiting: string;
@@ -46,6 +44,8 @@ export type LocaleUI = {
     nameTaken: (name: string) => string;
     pausedTitle: string;
     pausedSub: string;
+    roundError: string;
+    dismiss: string;
   };
   spectator: {
     banner: string;
@@ -101,7 +101,7 @@ export type LocaleUI = {
     selfSub: string;
     submit: string;
     placeholder: string;
-    answerIn: (language: string) => string;
+    answerAnyLanguage: string;
   };
   roundEnd: {
     title: (n: number, total: number) => string;

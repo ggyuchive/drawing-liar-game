@@ -12,7 +12,8 @@ const en: Locale = {
         'guitar', 'hat', 'kite', 'ladder', 'lighthouse', 'piano',
         'pirate', 'planet', 'robot', 'rocket', 'scissors', 'snowman',
         'spaceship', 'submarine', 'telescope', 'umbrella', 'unicorn',
-        'windmill',
+        'windmill', 'anchor', 'bridge', 'butterfly', 'camera', 'candle',
+        'clock', 'ghost', 'key', 'lightning', 'star', 'sword', 'train',
       ],
     },
     food: {
@@ -20,7 +21,8 @@ const en: Locale = {
       words: [
         'apple', 'banana', 'pineapple', 'pizza', 'sandwich',
         'mushroom', 'cactus', 'cake', 'donut', 'noodles', 'pancake',
-        'popcorn',
+        'popcorn', 'hamburger', 'ice cream', 'cherry', 'strawberry',
+        'watermelon', 'carrot', 'egg', 'bread',
       ],
     },
     nature: {
@@ -28,7 +30,114 @@ const en: Locale = {
       words: [
         'forest', 'island', 'mountain', 'rainbow', 'tree', 'volcano',
         'waterfall', 'tornado', 'dolphin', 'elephant', 'jellyfish',
-        'octopus',
+        'octopus', 'desert', 'river', 'lake', 'cave', 'whale', 'snake',
+        'penguin', 'shark',
+      ],
+    },
+    animals: {
+      name: 'Animals',
+      words: [
+        'cat', 'dog', 'lion', 'tiger', 'bear', 'rabbit', 'fox',
+        'monkey', 'giraffe', 'zebra', 'frog', 'owl', 'bee', 'spider',
+        'crab', 'turtle', 'horse', 'cow', 'pig', 'sheep', 'deer',
+        'kangaroo', 'panda', 'crocodile',
+      ],
+    },
+    sports: {
+      name: 'Sports',
+      words: [
+        'soccer', 'basketball', 'baseball', 'tennis', 'golf', 'boxing',
+        'skiing', 'surfing', 'bowling', 'archery', 'swimming', 'cycling',
+        'badminton', 'skating', 'volleyball', 'darts',
+      ],
+    },
+    vehicles: {
+      name: 'Vehicles',
+      words: [
+        'car', 'bus', 'airplane', 'helicopter', 'bicycle', 'motorcycle',
+        'ship', 'truck', 'taxi', 'tractor', 'ambulance', 'scooter',
+        'sailboat', 'hot air balloon', 'fire truck', 'canoe',
+      ],
+    },
+    household: {
+      name: 'Household',
+      words: [
+        'chair', 'table', 'lamp', 'bed', 'sofa', 'mirror', 'toothbrush',
+        'spoon', 'fork', 'cup', 'broom', 'bucket', 'pillow', 'blanket',
+        'towel', 'plate', 'knife', 'fan', 'kettle', 'vase',
+      ],
+    },
+    body: {
+      name: 'Body',
+      words: [
+        'eye', 'ear', 'nose', 'mouth', 'hand', 'foot', 'heart', 'brain',
+        'tooth', 'hair', 'finger', 'lips', 'bone', 'tongue',
+      ],
+    },
+    clothing: {
+      name: 'Clothing',
+      words: [
+        'shirt', 'pants', 'dress', 'skirt', 'jacket', 'socks', 'shoes',
+        'boots', 'gloves', 'scarf', 'tie', 'belt', 'ring', 'sunglasses',
+      ],
+    },
+    instruments: {
+      name: 'Instruments',
+      words: [
+        'violin', 'drum', 'flute', 'trumpet', 'harp', 'saxophone',
+        'cello', 'accordion', 'tambourine', 'harmonica', 'xylophone',
+        'trombone',
+      ],
+    },
+    jobs: {
+      name: 'Jobs',
+      words: [
+        'doctor', 'nurse', 'teacher', 'chef', 'firefighter',
+        'police officer', 'pilot', 'farmer', 'astronaut', 'painter',
+        'scientist', 'judge', 'sailor', 'magician', 'clown', 'detective',
+      ],
+    },
+    sea: {
+      name: 'Sea Life',
+      words: [
+        'seahorse', 'starfish', 'lobster', 'shrimp', 'squid', 'seal',
+        'walrus', 'pufferfish', 'clownfish', 'stingray', 'eel', 'oyster',
+        'swordfish', 'sea turtle', 'hermit crab', 'goldfish', 'sea otter',
+        'narwhal',
+      ],
+    },
+    birds: {
+      name: 'Birds & Bugs',
+      words: [
+        'eagle', 'parrot', 'flamingo', 'peacock', 'swan', 'ostrich',
+        'woodpecker', 'hummingbird', 'rooster', 'duck', 'ladybug',
+        'dragonfly', 'ant', 'grasshopper', 'snail', 'caterpillar',
+        'mosquito', 'beetle',
+      ],
+    },
+    produce: {
+      name: 'Fruits & Veggies',
+      words: [
+        'grapes', 'orange', 'lemon', 'peach', 'pear', 'avocado', 'lime',
+        'coconut', 'corn', 'pumpkin', 'broccoli', 'eggplant',
+        'chili pepper', 'onion', 'potato', 'tomato', 'garlic', 'mango',
+      ],
+    },
+    fantasy: {
+      name: 'Fantasy',
+      words: [
+        'mermaid', 'fairy', 'wizard', 'witch', 'vampire', 'zombie',
+        'genie', 'phoenix', 'knight', 'mummy', 'werewolf', 'alien',
+        'yeti', 'dwarf', 'elf', 'griffin', 'cyclops', 'centaur',
+      ],
+    },
+    objects: {
+      name: 'Everyday Objects',
+      words: [
+        'backpack', 'headphones', 'light bulb', 'balloon', 'gift box',
+        'traffic light', 'mailbox', 'trophy', 'medal', 'magnifying glass',
+        'hourglass', 'padlock', 'envelope', 'battery', 'wallet',
+        'suitcase', 'binoculars', 'fire extinguisher', 'dice', 'bell',
       ],
     },
   },
@@ -77,8 +186,6 @@ const en: Locale = {
       title: 'Waiting room',
       rounds: 'Rounds',
       turnsPerPlayer: 'Turns per player',
-      keywordLanguage: 'Keyword language',
-      keywordDeck: 'Keyword deck',
       startGame: 'Start game',
       needMorePlayers: (n) =>
         `Need ${n} more player${n === 1 ? '' : 's'}`,
@@ -98,6 +205,9 @@ const en: Locale = {
         `The name "${name}" is already taken in this room. Pick another.`,
       pausedTitle: 'Paused',
       pausedSub: 'Need at least 3 players. Waiting for people to (re)join…',
+      roundError:
+        "Couldn't reach the keyword server to set up the round. Try again.",
+      dismiss: 'Dismiss',
     },
     spectator: {
       banner: 'Spectating — you join the action next round.',
@@ -153,7 +263,7 @@ const en: Locale = {
       selfSub: 'One try. Nail it and you steal points back.',
       submit: 'Submit guess',
       placeholder: 'e.g. lighthouse',
-      answerIn: (language) => `Type your answer in ${language}.`,
+      answerAnyLanguage: 'Any language is accepted.',
     },
     roundEnd: {
       title: (n, total) => `Round ${n} / ${total}`,

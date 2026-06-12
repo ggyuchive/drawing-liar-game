@@ -8,7 +8,6 @@ import { normalizeGuess } from './state';
 type Props = {
   round: Round;
   myActorID: string | null;
-  keywordLanguage: string;
   presences: Array<{ clientID: string; presence: CanvasPresence }>;
   onSubmit: (guess: string, correct: boolean) => void;
 };
@@ -16,14 +15,11 @@ type Props = {
 export default function Guessing({
   round,
   myActorID,
-  keywordLanguage,
   presences,
   onSubmit,
 }: Props) {
   const ui = useT();
   const t = ui.guessing;
-  const langName =
-    LOCALE_LIST.find((l) => l.code === keywordLanguage)?.name ?? keywordLanguage;
   const [guess, setGuess] = useState('');
   const isLiar = !!myActorID && myActorID === round.liarId;
   const liarName =
@@ -74,7 +70,7 @@ export default function Guessing({
         {timer}
       </div>
       <p className="guessing__sub">{t.selfSub}</p>
-      <p className="guessing__lang">{t.answerIn(langName)}</p>
+      <p className="guessing__lang">{t.answerAnyLanguage}</p>
       <div className="guessing__row">
         <input
           type="text"

@@ -1,4 +1,4 @@
-import { deckListFor, LOCALE_LIST, useT } from '../i18n';
+import { useT } from '../i18n';
 import type { GameConfig, CanvasPresence } from '../types';
 
 const MIN_PLAYERS = 3;
@@ -22,7 +22,6 @@ export default function InRoomLobby({
   const players = presences.filter((p) => !p.presence.spectator);
   const spectatorCount = presences.length - players.length;
   const ready = players.length >= MIN_PLAYERS;
-  const decks = deckListFor(config.keywordLanguage);
 
   return (
     <div className="lobbyIn">
@@ -81,38 +80,9 @@ export default function InRoomLobby({
               />
             </label>
           </div>
-          <div className="lobbyIn__configRow">
-            <label className="lobbyIn__configCell">
-              {t.keywordLanguage}
-              <select
-                value={config.keywordLanguage}
-                onChange={(e) =>
-                  onConfigChange({ keywordLanguage: e.target.value })
-                }
-              >
-                {LOCALE_LIST.map((l) => (
-                  <option key={l.code} value={l.code}>
-                    {l.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="lobbyIn__configCell">
-              {t.keywordDeck}
-              <select
-                value={config.keywordDeck}
-                onChange={(e) =>
-                  onConfigChange({ keywordDeck: e.target.value })
-                }
-              >
-                {decks.map((d) => (
-                  <option key={d.key} value={d.key}>
-                    {d.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-          </div>
+          {/* No keyword-language or category pickers: each player sees
+              the keyword in their OWN language (top-bar language switch),
+              and the category is chosen server-side, hidden from the liar. */}
           <button
             className="lobbyIn__start"
             onClick={onStart}

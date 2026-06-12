@@ -33,7 +33,6 @@ export type Phase =
 export type GameConfig = {
   totalRounds: number;
   turnsPerPlayer: number;
-  keywordLanguage: string;
   keywordDeck: string;
   brushBudgetPx: number;
   turnTimeMs: number;
@@ -41,9 +40,16 @@ export type GameConfig = {
 
 export type Round = {
   index: number;
+  // Opaque handle for the server-authoritative round setup. Clients ask
+  // the keyword-secrecy server about *this* round (their own role +
+  // keyword) by this id. Empty for documents created before the backend.
+  roundId: string;
   // Canonical keyword text in the config language (used to check the
   // liar's guess). For DISPLAY, resolve keywordDeck+keywordIndex in the
   // viewer's own language so the shown word follows the UI language.
+  // SECRECY: `keyword`, `keywordIndex` (-1), and `liarId` ('') stay
+  // empty in the document until the reveal step publishes them; before
+  // that each client learns its own keyword/role only from the server.
   keyword: string;
   keywordDeck: string;
   keywordIndex: number;
@@ -97,9 +103,10 @@ export const GUESS_TIME_MS = 30_000;
 
 const emptyRound = (): Round => ({
   index: 0,
+  roundId: '',
   keyword: '',
   keywordDeck: '',
-  keywordIndex: 0,
+  keywordIndex: -1,
   liarId: '',
   playerOrder: [],
   turnIndex: 0,
@@ -119,7 +126,6 @@ export const initialGame = (): Game => ({
   config: {
     totalRounds: 3,
     turnsPerPlayer: 2,
-    keywordLanguage: 'en',
     keywordDeck: DEFAULT_KEYWORD_DECK,
     brushBudgetPx: DEFAULT_BRUSH_BUDGET_PX,
     turnTimeMs: DEFAULT_TURN_TIME_MS,

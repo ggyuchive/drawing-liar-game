@@ -75,17 +75,21 @@ When the host starts a round, instead of writing keyword/liar into the
 document, the client calls the server, which owns the assignment:
 
 ```
-host ──POST /api/round/start {room, token, playerUids[], deck}──▶ server
-server: pick keyword K, pick liar L from playerUids
-server: store {room, roundId, K, L} in server state (in-memory or KV)
-server ◀── { roundId }  (NO keyword, NO liar) ──
+host ──POST /api/round/start {room, token, playerUids[], decks[]}──▶ server
+server: pick a deck D + index I across ALL decks (weighted by size),
+        pick liar L from playerUids
+server: store {room, roundId, D, I, L} in server state (KV)
+server ◀── { roundId }  (NO deck, NO index, NO liar) ──
 host: write to Yorkie doc: phase=drawing, roundId, playerOrder, …
-      but round.keyword = ""  and round.liarId = ""  (empty)
+      but round.keyword/keywordDeck/keywordIndex/liarId all empty
 ```
 
-The document gains a `roundId` (opaque) so clients can ask the server
-about the current round. `keyword` and `liarId` fields stay in the
-schema but are always empty until the reveal step.
+Players do **not** choose a category — the host sends every deck's
+size and the server picks the category too. The category is itself a
+hint (it narrows what to draw), so it's withheld from the liar exactly
+like the keyword. The document gains an opaque `roundId`; the
+`keyword`, `keywordDeck`, `keywordIndex`, and `liarId` fields stay in
+the schema but are empty (`-1` for the index) until the reveal step.
 
 ### Role/keyword fetch — per client, authenticated
 
@@ -95,13 +99,15 @@ Each client fetches its own view:
 client ──GET /api/round/:roundId/me  (token) ──▶ server
 server: verify token → uid U; look up round
 server: isLiar = (U === L)
-server ◀── { isLiar: true }                      (liar)
-        ◀── { isLiar: false, keyword: K }        (non-liar)
+server ◀── { isLiar: true }                          (liar)
+        ◀── { isLiar: false, keywordDeck: D, keywordIndex: I }  (non-liar)
 ```
 
-The liar never receives K. A non-liar receives K to render the HUD.
-Because the token binds the uid, a client can only ever fetch *its
-own* role — it can't ask "is Bob the liar?".
+The liar never receives the deck/index. A non-liar receives them and
+localizes the word from its parallel i18n deck to render the HUD (the
+server holds only deck+index, never keyword strings). Because the token
+binds the uid, a client can only ever fetch *its own* role — it can't
+ask "is Bob the liar?".
 
 ### Reveal — server releases the secret
 
@@ -110,8 +116,8 @@ RoundEnd can show it to everyone:
 
 ```
 host ──POST /api/round/:roundId/reveal (token)──▶ server
-server ◀── { keyword: K, liarId: L } ──
-host: write keyword + liarId into the Yorkie doc (now public)
+server ◀── { keywordDeck: D, keywordIndex: I, liarId: L } ──
+host: write deck + index + liarId (+ resolved keyword) into the doc
 ```
 
 After reveal, the values live in the document as before, so the
@@ -120,16 +126,19 @@ existing Reveal / RoundEnd UI keeps working unchanged.
 ### What stays in the document (unchanged)
 
 `phase`, `playerOrder`, `turnIndex`, `strokesDone`, `votes`,
-`scores`, `colors`, strokes, chat, brush/timer fields. The server only
-owns `keyword` + `liarId` and only until reveal.
+`scores`, `colors`, strokes, chat, brush/timer fields. The server owns
+the round's `keywordDeck` + `keywordIndex` + `liarId`, only until reveal.
 
 ### Server state
 
 Round secrets (`{roundId → {keyword, liarId, room, playerUids}}`) can
 start as an in-memory map for a single function instance, but Vercel
 Functions are stateless/multi-instance, so the first real
-implementation should use a small KV (Vercel KV / Upstash Redis) keyed
-by `roundId`, with a TTL so abandoned rounds expire.
+implementation uses **Upstash Redis** (added via the Vercel
+Marketplace) keyed by `roundId`, with a TTL so abandoned rounds
+expire. Upstash is the convenient native choice now that the old
+Vercel KV product is retired in favour of Marketplace databases; it is
+serverless, has a free tier, and supports per-key TTL directly.
 
 ### Risks and Mitigation
 
@@ -137,7 +146,7 @@ by `roundId`, with a TTL so abandoned rounds expire.
 |------|------------|
 | Host writes a fake/empty roundId or skips the server | The keyword HUD comes only from the server; a forged round just yields no keyword for anyone, which is self-defeating, not an exploit. Non-liars with no keyword is a visible broken state, not a secrecy break. |
 | Token theft lets someone fetch a role | Tokens are per-uid and per-room, short-lived, and only ever return the *caller's own* role — a stolen token reveals only that one player's role, which they already know. |
-| Vercel Functions are multi-instance / stateless | Store round secrets in Vercel KV / Upstash keyed by `roundId` with a TTL, not in process memory. |
+| Vercel Functions are multi-instance / stateless | Store round secrets in Upstash Redis keyed by `roundId` with a TTL, not in process memory. |
 | Liar inferred from timing/turn order | Role assignment is server-side and random; the document exposes no liar hint until reveal. (Chat/behaviour leaks remain a social problem, as today.) |
 | Server down → game can't start | Degrade explicitly: if `/api/round/start` fails, the host sees an error and can retry; optionally a clearly-labelled "insecure local mode" fallback for dev only. |
 | Clock/replay on tokens | Include `exp` and `room`; verify both. Rotate the signing secret via env var. |
@@ -151,6 +160,8 @@ by `roundId`, with a TTL so abandoned rounds expire.
 | Node/TS Vercel Functions | Shares types with the app, one deploy, no separate infra; matches the chosen hosting. |
 | Signed token bound to the existing `uid` | Reuses the identity we already made reload/reconnect-stable; no accounts, preserves the casual flow. |
 | `roundId` opaque handle in the doc | Lets any client ask the server about "the current round" without exposing round internals. |
+| Upstash Redis for round secrets | Convenient Vercel-native KV (Marketplace) after the old Vercel KV retired; serverless, free tier, per-key TTL — a perfect fit for short-lived `roundId` secrets. |
+| Server picks the category across all decks; players can't filter | The category narrows what to draw, so it's a hint — letting a player (possibly the liar) choose or read it would leak. The host sends every deck's size; the server picks deck+index, weighted by size so each keyword is equally likely. |
 
 ## Alternatives Considered
 

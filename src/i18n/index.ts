@@ -6,6 +6,8 @@ export {
   pickKeyword,
   pickKeywordIndex,
   keywordAt,
+  deckSize,
+  deckSizes,
   deckListFor,
 } from './hooks';
 export type { Locale } from './types';

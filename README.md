@@ -40,6 +40,16 @@ pnpm dev          # http://localhost:5173
 Create a room, then open the URL in a second browser window (or send
 it to friends) to play together.
 
+`pnpm dev` runs the front end only, so the keyword and the liar are
+assigned **client-side** — fine for local play, but the keyword lives
+in the shared document. The production build hides them behind
+serverless functions (`api/`): the server assigns and withholds the
+keyword + liar and serves each client only its own role. To exercise
+that path locally, run `vercel dev` instead with `JWT_SECRET` and an
+Upstash Redis (`UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN`)
+set — see [`.env.example`](.env.example) and
+[`docs/design/keyword-secrecy.md`](docs/design/keyword-secrecy.md).
+
 Other commands:
 
 ```sh

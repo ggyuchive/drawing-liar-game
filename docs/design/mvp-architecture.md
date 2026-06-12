@@ -52,6 +52,13 @@ existing `drawing-liar-game-<roomCode>` document — no extra backend.
 
 ### Non-Goals
 
+> **Note (post-MVP):** the two keyword/cheat-resistance non-goals below
+> were the MVP's intentional trade-off and have since been superseded by
+> a server-authoritative design — see
+> [`keyword-secrecy.md`](keyword-secrecy.md). The keyword, its category,
+> and the liar are now assigned by Vercel Functions and withheld from
+> the document (and the liar) until reveal.
+
 - Cheat resistance against malicious players. A custom client could read
   the keyword from the document even when assigned as liar. Out of scope.
 - Server-side keyword storage / authoritative dealer. We rely on the
