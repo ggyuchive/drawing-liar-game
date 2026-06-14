@@ -157,6 +157,7 @@ const en: Locale = {
         'Players take turns drawing the keyword on the shared canvas. Each turn has a brush budget and a 10-second timer.',
         "The liar doesn't know the word, so they bluff — drawing something plausible to blend in.",
         'After the drawing turns, everyone votes on who they think the liar is.',
+        'If the vote ties, everyone draws one more round and votes again — tie again and the liar gets away.',
         'The accused is revealed, then the liar takes one guess at the keyword.',
         'Scores reward the room for catching the liar, and the liar for bluffing and for actually guessing the word. Highest score after the last round wins.',
         'Click a player on the side to highlight only their strokes — handy for spotting the liar.',
@@ -181,6 +182,8 @@ const en: Locale = {
       join: 'Join',
       spectate: 'Spectate',
       languageLabel: 'Language',
+      activeCount: (rooms, users) =>
+        `${rooms} room${rooms === 1 ? '' : 's'} · ${users} player${users === 1 ? '' : 's'} online`,
     },
     inRoomLobby: {
       title: 'Waiting room',

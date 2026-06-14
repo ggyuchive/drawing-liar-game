@@ -28,6 +28,7 @@ import RoundEnd from './game/RoundEnd';
 import RoundHud, { type HudRole } from './game/RoundHud';
 import Voting from './game/Voting';
 import { fetchRole, revealRound, startRound } from './game/secrets';
+import { pingRoom } from './rooms';
 import { applyScores, shuffle, tallyVotes } from './game/state';
 import {
   assignColors,
@@ -55,6 +56,7 @@ import {
   DEFAULT_BRUSH_BUDGET_PX,
   DEFAULT_TURN_TIME_MS,
   GUESS_TIME_MS,
+  REVEAL_TIME_MS,
   VOTE_TIME_MS,
   initialGame,
 } from './types';
@@ -107,7 +109,11 @@ function RoomInner({
   const myActorID = myUid;
   const t = useT();
   const { locale, setLocaleCode } = useLocale();
-  const [chatOpen, setChatOpen] = useState(true);
+  // Chat starts closed on narrow/mobile screens (where it would cover
+  // the board), open on desktop.
+  const [chatOpen, setChatOpen] = useState(
+    () => typeof window === 'undefined' || window.innerWidth > 820,
+  );
   const [chatPos, setChatPos] = useState<'side' | 'bottom'>('side');
   const [highlightId, setHighlightId] = useState<string | null>(null);
   const [howToOpen, setHowToOpen] = useState(false);
@@ -397,6 +403,9 @@ function RoomInner({
   const docLiarId = ready ? root.game.round.liarId : '';
   const docKeywordIndex = ready ? root.game.round.keywordIndex : -1;
   const docHasSecret = !!docLiarId || docKeywordIndex >= 0;
+  // Tie state for the one-shot tie-break (consumed in resolveVoting).
+  const voteTied = ready ? tallyVotes(root.game.round.votes).tied : false;
+  const tieBreakUsed = ready ? !!root.game.round.tieBreakUsed : false;
 
   // Fetch this client's own role + keyword for the drawing phase from
   // the secrecy server (the document withholds them). setState only ever
@@ -436,15 +445,30 @@ function RoomInner({
     };
   }, [loading, error, phase, roundId, docHasSecret, myActorID, room]);
 
-  // Latest reveal context for advanceToReveal, kept in a ref so the
+  // Heartbeat the active room/user counter while attached (best-effort).
+  useEffect(() => {
+    if (loading || error || !myActorID) return;
+    pingRoom(room, myActorID);
+    const id = setInterval(() => pingRoom(room, myActorID), 60_000);
+    return () => clearInterval(id);
+  }, [loading, error, room, myActorID]);
+
+  // Latest reveal context for resolveVoting, kept in a ref so the
   // callback (and the timers depending on it) stays stable across
   // presence churn. Updated every render via the effect below.
-  const revealCtxRef = useRef<{ roundId: string; hasSecret: boolean }>({
-    roundId: '',
-    hasSecret: false,
-  });
+  const revealCtxRef = useRef<{
+    roundId: string;
+    hasSecret: boolean;
+    tied: boolean;
+    tieBreakUsed: boolean;
+  }>({ roundId: '', hasSecret: false, tied: false, tieBreakUsed: false });
   useEffect(() => {
-    revealCtxRef.current = { roundId, hasSecret: docHasSecret };
+    revealCtxRef.current = {
+      roundId,
+      hasSecret: docHasSecret,
+      tied: voteTied,
+      tieBreakUsed,
+    };
   });
 
   // Voting: the host advances to reveal when everyone present has
@@ -461,8 +485,24 @@ function RoomInner({
       return present.length > 0 && present.every((uid) => !!votes[uid]);
     })();
 
-  const advanceToReveal = useCallback(async () => {
+  const resolveVoting = useCallback(async () => {
     const ctx = revealCtxRef.current;
+    // A tied vote with the one-shot tie-break still available → grant one
+    // more drawing cycle (existing strokes kept, so players add clues)
+    // and a fresh vote. A second tie just resolves as "not caught".
+    if (ctx.tied && !ctx.tieBreakUsed) {
+      update((r) => {
+        if (r.game.phase !== 'voting') return;
+        r.game.round.tieBreakUsed = true;
+        r.game.round.votes = {};
+        r.game.round.turnIndex = 0;
+        r.game.round.strokesDone = 0;
+        r.game.round.brushUsedPx = 0;
+        r.game.round.turnStartedAt = Date.now();
+        r.game.phase = 'drawing';
+      });
+      return;
+    }
     let revealed: {
       keywordDeck: string;
       keywordIndex: number;
@@ -503,9 +543,9 @@ function RoomInner({
     if (loading || error) return;
     if (phase !== 'voting' || paused) return;
     if (!(myActorID && myActorID === hostId)) return;
-    const id = setTimeout(() => advanceToReveal(), VOTE_TIME_MS);
+    const id = setTimeout(() => resolveVoting(), VOTE_TIME_MS);
     return () => clearTimeout(id);
-  }, [loading, error, phase, paused, roundIndex, myActorID, hostId, advanceToReveal]);
+  }, [loading, error, phase, paused, roundIndex, myActorID, hostId, resolveVoting]);
 
   // Everyone voted → reveal early.
   useEffect(() => {
@@ -514,9 +554,23 @@ function RoomInner({
     if (!(myActorID && myActorID === hostId)) return;
     // Deferred so the (now async) reveal — which may setState on error
     // — doesn't run synchronously inside the effect body.
-    const id = setTimeout(() => advanceToReveal(), 0);
+    const id = setTimeout(() => resolveVoting(), 0);
     return () => clearTimeout(id);
-  }, [loading, error, votingAllIn, paused, myActorID, hostId, advanceToReveal]);
+  }, [loading, error, votingAllIn, paused, myActorID, hostId, resolveVoting]);
+
+  // Reveal auto-advances to the liar's guess after a short hold — there
+  // is no manual "continue" button. Host owns the write.
+  useEffect(() => {
+    if (loading || error) return;
+    if (phase !== 'reveal' || paused) return;
+    if (!(myActorID && myActorID === hostId)) return;
+    const id = setTimeout(() => {
+      update((r) => {
+        if (r.game.phase === 'reveal') r.game.phase = 'guessing';
+      });
+    }, REVEAL_TIME_MS);
+    return () => clearTimeout(id);
+  }, [loading, error, phase, paused, roundIndex, myActorID, hostId, update]);
 
   // Guessing: if the liar doesn't submit within 30s, auto-resolve with
   // no answer (wrong). The liar owns the write; the host covers a
@@ -914,6 +968,7 @@ function RoomInner({
           liarGuess: '',
           guessCorrect: false,
           wasCaught: false,
+          tieBreakUsed: false,
           brushBudgetPx: r.game.config.brushBudgetPx,
           brushUsedPx: 0,
           turnStartedAt: Date.now(),
@@ -961,21 +1016,11 @@ function RoomInner({
         );
       }
       case 'reveal': {
-        // Always advance to guessing; the accused's identity only
-        // decides the scoring branch, computed at guess-submit time.
-        const onContinue = () => {
-          if (!isHost) return;
-          update((r) => {
-            r.game.phase = 'guessing';
-          });
-        };
+        // Display-only; a host-owned timer auto-advances to guessing
+        // (see the reveal effect). The accused's identity only decides
+        // the scoring branch, computed at guess-submit time.
         return withBoard(
-          <Reveal
-            round={root.game.round}
-            isHost={isHost}
-            presences={displayPresences}
-            onContinue={onContinue}
-          />,
+          <Reveal round={root.game.round} presences={displayPresences} />,
         );
       }
       case 'guessing': {
@@ -1049,6 +1094,7 @@ function RoomInner({
               liarGuess: '',
               guessCorrect: false,
               wasCaught: false,
+              tieBreakUsed: false,
               brushBudgetPx: r.game.config.brushBudgetPx,
               brushUsedPx: 0,
               turnStartedAt: Date.now(),

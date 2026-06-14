@@ -4,17 +4,10 @@ import { tallyVotes } from './state';
 
 type Props = {
   round: Round;
-  isHost: boolean;
   presences: Array<{ clientID: string; presence: CanvasPresence }>;
-  onContinue: () => void;
 };
 
-export default function Reveal({
-  round,
-  isHost,
-  presences,
-  onContinue,
-}: Props) {
+export default function Reveal({ round, presences }: Props) {
   const t = useT().reveal;
   const { counts } = tallyVotes(round.votes);
   const nameFor = (id: string) =>
@@ -74,11 +67,6 @@ export default function Reveal({
         )}
       </p>
 
-      {isHost && (
-        <button className="reveal__continue" onClick={() => onContinue()}>
-          {t.continueAction}
-        </button>
-      )}
     </div>
   );
 }

@@ -24,6 +24,7 @@ export type LocaleUI = {
     join: string;
     spectate: string;
     languageLabel: string;
+    activeCount: (rooms: number, users: number) => string;
   };
   inRoomLobby: {
     title: string;

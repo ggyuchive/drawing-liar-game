@@ -61,6 +61,10 @@ export type Round = {
   liarGuess: string;
   guessCorrect: boolean;
   wasCaught: boolean;
+  // A tied vote grants ONE extra drawing cycle + re-vote per round.
+  // Set true once that tie-break has been spent; a second tie then
+  // resolves as "liar not caught".
+  tieBreakUsed: boolean;
   brushBudgetPx: number;
   brushUsedPx: number;
   turnStartedAt: number;
@@ -100,6 +104,9 @@ export const DEFAULT_KEYWORD_DECK = 'general';
 // liar-guessing phases.
 export const VOTE_TIME_MS = 30_000;
 export const GUESS_TIME_MS = 30_000;
+// How long the vote result is shown before the liar's guess starts
+// (auto-advance; there is no manual "continue").
+export const REVEAL_TIME_MS = 3_000;
 
 const emptyRound = (): Round => ({
   index: 0,
@@ -115,6 +122,7 @@ const emptyRound = (): Round => ({
   liarGuess: '',
   guessCorrect: false,
   wasCaught: false,
+  tieBreakUsed: false,
   brushBudgetPx: DEFAULT_BRUSH_BUDGET_PX,
   brushUsedPx: 0,
   turnStartedAt: 0,
