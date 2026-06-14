@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { signSession } from './_lib/token';
+import { signSession } from './_lib/token.js';
 
 // POST /api/session  { uid, room } -> { token }
 // Issues a signed token binding the caller to {uid, room}. No identity

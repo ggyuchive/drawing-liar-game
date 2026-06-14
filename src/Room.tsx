@@ -4,7 +4,6 @@ import {
   useMemo,
   useRef,
   useState,
-  type ReactNode,
 } from 'react';
 import {
   YorkieProvider,
@@ -14,46 +13,20 @@ import {
   type JSONObject,
 } from '@yorkie-js/react';
 import { StreamConnectionStatus } from '@yorkie-js/sdk';
-import Canvas from './Canvas';
-import BoardView from './game/BoardView';
-import BrushMeter from './game/BrushMeter';
 import Chat from './game/Chat';
 import HowToModal from './game/HowToModal';
-import TurnTimer from './game/TurnTimer';
-import InRoomLobby from './game/InRoomLobby';
-import Finished from './game/Finished';
-import Guessing from './game/Guessing';
-import Reveal from './game/Reveal';
-import RoundEnd from './game/RoundEnd';
-import RoundHud, { type HudRole } from './game/RoundHud';
-import Voting from './game/Voting';
-import { fetchRole, revealRound, startRound } from './game/secrets';
+import RoomPhase from './game/RoomPhase';
+import { fetchRole, revealRound } from './game/secrets';
 import { pingRoom } from './rooms';
-import { applyScores, shuffle, tallyVotes } from './game/state';
+import { applyScores, tallyVotes } from './game/state';
 import {
-  assignColors,
   electHost,
-  fillMissingColors,
-  isSpectator,
   nameIsTaken,
-  pickPlayerOrder,
   resolveTurnAdvance,
 } from './game/engine';
+import { LOCALE_LIST, useLocale, useT } from './i18n';
+import type { CanvasPresence, ChatMessage, Game, Stroke } from './types';
 import {
-  LOCALE_LIST,
-  deckSizes,
-  useLocale,
-  useT,
-} from './i18n';
-import type {
-  CanvasPresence,
-  ChatMessage,
-  Game,
-  GameConfig,
-  Stroke,
-} from './types';
-import {
-  DEFAULT_BRUSH_BUDGET_PX,
   DEFAULT_TURN_TIME_MS,
   GUESS_TIME_MS,
   REVEAL_TIME_MS,
@@ -65,7 +38,6 @@ import {
   generateId,
   getSessionSpectator,
   getSessionUid,
-  PLAYER_COLORS,
   randomPlayerColor,
 } from './util';
 
@@ -75,7 +47,7 @@ type Props = {
   onLeave: () => void;
 };
 
-type DocRoot = {
+export type DocRoot = {
   game: JSONObject<Game>;
   strokes: JSONArray<JSONObject<Stroke>>;
   chat: JSONArray<JSONObject<ChatMessage>>;
@@ -851,7 +823,18 @@ function RoomInner({
             {profiles.map(({ presence }) => renderProfile(presence))}
           </aside>
           <main className="room__main">
-            {renderPhase()}
+            <RoomPhase
+              myActorID={myActorID}
+              room={room}
+              uniquePresences={uniquePresences}
+              displayPresences={displayPresences}
+              highlightId={highlightId}
+              advanceTurn={advanceTurn}
+              setRoundError={setRoundError}
+              serverRole={serverRole}
+              docHasSecret={docHasSecret}
+              roundId={roundId}
+            />
             {paused && (
               <div className="pauseOverlay">
                 <div className="pauseOverlay__card">
@@ -876,345 +859,6 @@ function RoomInner({
       {howToOpen && <HowToModal onClose={() => setHowToOpen(false)} />}
     </div>
   );
-
-  function renderPhase() {
-    const isHost = !!myActorID && myActorID === root.game.hostId;
-    const myColor =
-      uniquePresences.find((p) => p.presence.uid === myActorID)?.presence
-        .color ?? '#1f2937';
-    // A player who joined mid-round isn't in playerOrder. They watch
-    // until the next round snapshots presences into a fresh order.
-    const spectating = isSpectator(
-      root.game.phase,
-      root.game.round.playerOrder,
-      myActorID,
-    );
-    const onConfigChange = (next: Partial<GameConfig>) => {
-      if (!isHost) return;
-      update((r) => {
-        if (next.totalRounds !== undefined) {
-          r.game.config.totalRounds = next.totalRounds;
-        }
-        if (next.turnsPerPlayer !== undefined) {
-          r.game.config.turnsPerPlayer = next.turnsPerPlayer;
-        }
-        if (next.keywordDeck !== undefined) {
-          r.game.config.keywordDeck = next.keywordDeck;
-        }
-      });
-    };
-    // The finished drawing stays visible (read-only) beside the
-    // judging screens, with the active local highlight applied.
-    const withBoard = (node: ReactNode) => (
-      <div className="phase phase--judge">
-        <BoardView strokes={root.strokes} highlightId={highlightId} />
-        <div className="phase__panel">{node}</div>
-      </div>
-    );
-    const onStart = async () => {
-      if (!isHost || !myActorID) return;
-      // First 8 non-spectators by join order play; the rest watch.
-      const order = pickPlayerOrder(
-        uniquePresences
-          .filter((p) => !p.presence.spectator)
-          .map((p) => p.presence.uid),
-        shuffle,
-      );
-      if (order.length < 3) return;
-      // The host sends EVERY category; the server picks the deck + index
-      // (and the liar) across all of them — players don't choose a
-      // category, and the choice stays hidden from the liar. (`assignment`
-      // is the insecure DEV fallback when the server is unreachable.)
-      const decks = deckSizes(locale.code);
-      let result;
-      try {
-        result = await startRound({
-          room,
-          uid: myActorID,
-          decks: [...decks],
-          playerUids: order,
-        });
-      } catch (e) {
-        console.error('round start failed', e);
-        setRoundError(true);
-        return;
-      }
-      setRoundError(false);
-      const assigned = result.assignment;
-      update((r) => {
-        // Heal config fields that an older document may be missing,
-        // so the new game starts with a real timer and brush budget.
-        if (!(r.game.config.turnTimeMs > 0)) {
-          r.game.config.turnTimeMs = DEFAULT_TURN_TIME_MS;
-        }
-        if (!(r.game.config.brushBudgetPx > 0)) {
-          r.game.config.brushBudgetPx = DEFAULT_BRUSH_BUDGET_PX;
-        }
-        r.game.round = {
-          index: 1,
-          roundId: result.roundId,
-          // The keyword text is never stored; each client localizes it
-          // from deck + index in its own language. deck/index/liar stay
-          // empty in secure mode and are written by the dev fallback so
-          // server-less peers can play.
-          keyword: '',
-          keywordDeck: assigned ? assigned.deck : '',
-          keywordIndex: assigned ? assigned.keywordIndex : -1,
-          liarId: assigned ? assigned.liarId : '',
-          playerOrder: order,
-          turnIndex: 0,
-          strokesDone: 0,
-          votes: {},
-          liarGuess: '',
-          guessCorrect: false,
-          wasCaught: false,
-          tieBreakUsed: false,
-          brushBudgetPx: r.game.config.brushBudgetPx,
-          brushUsedPx: 0,
-          turnStartedAt: Date.now(),
-        };
-        while (r.strokes.length > 0) r.strokes.delete?.(0);
-        r.game.scores = Object.fromEntries(order.map((id) => [id, 0]));
-        // Fresh, distinct color per player for the whole game.
-        r.game.colors = assignColors(order, shuffle(PLAYER_COLORS));
-        r.game.phase = 'drawing';
-      });
-    };
-
-    switch (root.game.phase) {
-      case 'lobby':
-        return (
-          <InRoomLobby
-            isHost={isHost}
-            config={root.game.config}
-            presences={uniquePresences}
-            onConfigChange={onConfigChange}
-            onStart={onStart}
-          />
-        );
-      case 'finished': {
-        const onPlayAgain = () => {
-          if (!isHost) return;
-          update((r) => {
-            const fresh = initialGame();
-            fresh.hostId = r.game.hostId;
-            for (const p of uniquePresences) {
-              fresh.scores[p.presence.uid] = 0;
-            }
-            r.game = fresh as unknown as JSONObject<Game>;
-            while (r.strokes.length > 0) r.strokes.delete?.(0);
-            while (r.chat.length > 0) r.chat.delete?.(0);
-          });
-        };
-        return (
-          <Finished
-            game={root.game}
-            isHost={isHost}
-            presences={displayPresences}
-            onPlayAgain={onPlayAgain}
-          />
-        );
-      }
-      case 'reveal': {
-        // Display-only; a host-owned timer auto-advances to guessing
-        // (see the reveal effect). The accused's identity only decides
-        // the scoring branch, computed at guess-submit time.
-        return withBoard(
-          <Reveal round={root.game.round} presences={displayPresences} />,
-        );
-      }
-      case 'guessing': {
-        const onSubmit = (guess: string, correct: boolean) => {
-          if (!myActorID) return;
-          if (myActorID !== root.game.round.liarId) return;
-          update((r) => {
-            const { accusedId, tied } = tallyVotes(r.game.round.votes);
-            // A tie = no single clear accusation, so the liar escapes.
-            const caught = !tied && accusedId === r.game.round.liarId;
-            r.game.round.liarGuess = guess;
-            r.game.round.guessCorrect = correct;
-            r.game.round.wasCaught = caught;
-            r.game.scores = applyScores(
-              { caught, guessed: correct },
-              r.game.round.playerOrder,
-              r.game.round.liarId,
-              r.game.scores,
-            );
-            r.game.phase = 'roundEnd';
-          });
-        };
-        return withBoard(
-          <Guessing
-            round={root.game.round}
-            myActorID={myActorID}
-            presences={displayPresences}
-            onSubmit={onSubmit}
-          />,
-        );
-      }
-      case 'roundEnd': {
-        const onNext = async () => {
-          if (!isHost || !myActorID) return;
-          const order = pickPlayerOrder(
-            uniquePresences
-              .filter((p) => !p.presence.spectator)
-              .map((p) => p.presence.uid),
-            shuffle,
-          );
-          if (order.length < 3) return;
-          const decks = deckSizes(locale.code);
-          let result;
-          try {
-            result = await startRound({
-              room,
-              uid: myActorID,
-              decks: [...decks],
-              playerUids: order,
-            });
-          } catch (e) {
-            console.error('next round start failed', e);
-            setRoundError(true);
-            return;
-          }
-          setRoundError(false);
-          const assigned = result.assignment;
-          update((r) => {
-            const nextIndex = r.game.round.index + 1;
-            r.game.round = {
-              index: nextIndex,
-              roundId: result.roundId,
-              keyword: '',
-              keywordDeck: assigned ? assigned.deck : '',
-              keywordIndex: assigned ? assigned.keywordIndex : -1,
-              liarId: assigned ? assigned.liarId : '',
-              playerOrder: order,
-              turnIndex: 0,
-              strokesDone: 0,
-              votes: {},
-              liarGuess: '',
-              guessCorrect: false,
-              wasCaught: false,
-              tieBreakUsed: false,
-              brushBudgetPx: r.game.config.brushBudgetPx,
-              brushUsedPx: 0,
-              turnStartedAt: Date.now(),
-            };
-            while (r.strokes.length > 0) r.strokes.delete?.(0);
-            for (const id of order) {
-              // Read access (not `in`, which is unreliable on the
-              // Yorkie proxy and was resetting every score to 0 each
-              // round). Only seed genuinely-new players at 0.
-              if (r.game.scores[id] === undefined) r.game.scores[id] = 0;
-            }
-            // Keep existing players' colors; give any newcomer an
-            // unused one so the per-game assignment stays stable.
-            r.game.colors = fillMissingColors(
-              order,
-              { ...r.game.colors },
-              PLAYER_COLORS,
-            );
-            r.game.phase = 'drawing';
-          });
-        };
-        const onFinish = () => {
-          if (!isHost) return;
-          update((r) => {
-            r.game.phase = 'finished';
-          });
-        };
-        return withBoard(
-          <RoundEnd
-            game={root.game}
-            isHost={isHost}
-            presences={displayPresences}
-            onNext={onNext}
-            onFinish={onFinish}
-          />,
-        );
-      }
-      case 'voting': {
-        const onVote = (suspectId: string) => {
-          if (!myActorID) return;
-          if (!root.game.round.playerOrder.includes(myActorID)) return;
-          update((r) => {
-            r.game.round.votes[myActorID] = suspectId;
-          });
-        };
-        if (spectating) {
-          return withBoard(
-            <div className="spectator">
-              <h2 className="spectator__title">{t.spectator.votingTitle}</h2>
-              <p className="spectator__sub">{t.spectator.votingSub}</p>
-            </div>,
-          );
-        }
-        return withBoard(
-          <Voting
-            round={root.game.round}
-            myActorID={myActorID}
-            presences={displayPresences}
-            onVote={onVote}
-          />,
-        );
-      }
-      case 'drawing': {
-        const { playerOrder, turnIndex } = root.game.round;
-        const drawerId = playerOrder[turnIndex % playerOrder.length] ?? '';
-        const isMyTurn = !!myActorID && myActorID === drawerId;
-        const drawerName =
-          displayPresences.find((p) => p.presence.uid === drawerId)?.presence
-            .name ?? '';
-        const onStrokeEnd = () => {
-          if (!isMyTurn) return;
-          advanceTurn();
-        };
-        // Role + keyword come from the document when it carries the
-        // secret (dev fallback / post-reveal), otherwise from this
-        // client's own server fetch. null until that fetch resolves.
-        const hudRole: HudRole | null = docHasSecret
-          ? {
-              isLiar: !!myActorID && myActorID === root.game.round.liarId,
-              keywordDeck: root.game.round.keywordDeck,
-              keywordIndex: root.game.round.keywordIndex,
-            }
-          : serverRole && serverRole.roundId === roundId
-            ? {
-                isLiar: serverRole.isLiar,
-                keywordDeck: serverRole.keywordDeck,
-                keywordIndex: serverRole.keywordIndex,
-              }
-            : null;
-        return (
-          <div className="phase">
-            {spectating && (
-              <div className="spectator__banner">{t.spectator.banner}</div>
-            )}
-            <RoundHud
-              round={root.game.round}
-              config={root.game.config}
-              role={hudRole}
-              presences={displayPresences}
-            />
-            <div className="phase__gauges">
-              <BrushMeter round={root.game.round} />
-              <TurnTimer round={root.game.round} config={root.game.config} />
-            </div>
-            <Canvas
-              strokes={root.strokes}
-              isMyTurn={isMyTurn}
-              drawerName={drawerName}
-              myUid={myActorID}
-              myColor={myColor}
-              highlightId={highlightId}
-              onStrokeEnd={onStrokeEnd}
-            />
-          </div>
-        );
-      }
-      default:
-        return null;
-    }
-  }
 }
 
 function MissingApiKeyHint() {

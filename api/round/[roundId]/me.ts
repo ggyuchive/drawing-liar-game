@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { verifySession } from '../../_lib/token';
-import { getRoundSecret, roleView } from '../../_lib/rounds';
+import { verifySession } from '../../_lib/token.js';
+import { getRoundSecret, roleView } from '../../_lib/rounds.js';
 
 function bearer(req: VercelRequest): string {
   const h = req.headers.authorization ?? '';

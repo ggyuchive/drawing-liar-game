@@ -3,6 +3,7 @@ import Lobby from './Lobby';
 import Room from './Room';
 import { normalizeRoomCode } from './util';
 import './App.css';
+import './board.css';
 
 type RouteState = {
   room: string | null;

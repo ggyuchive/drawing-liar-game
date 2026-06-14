@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { activeCounts } from '../_lib/rooms';
+import { activeCounts } from '../_lib/rooms.js';
 
 // GET /api/rooms/active -> { rooms, users }
 // Rooms and users pinged within the active window.

@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { pingRoom } from '../_lib/rooms';
+import { pingRoom } from '../_lib/rooms.js';
 
 // POST /api/rooms/ping  { room, uid }
 // Marks a room + user as currently active (best-effort, no auth — the
