@@ -5,139 +5,135 @@ const en: Locale = {
   name: 'English',
 
   keywords: {
-    general: {
-      name: 'General',
+    animals: {
+      name: 'Animals',
       words: [
-        'castle', 'cloud', 'compass', 'crown', 'dragon', 'glasses',
-        'guitar', 'hat', 'kite', 'ladder', 'lighthouse', 'piano',
-        'pirate', 'planet', 'robot', 'rocket', 'scissors', 'snowman',
-        'spaceship', 'submarine', 'telescope', 'umbrella', 'unicorn',
-        'windmill', 'anchor', 'bridge', 'butterfly', 'camera', 'candle',
-        'clock', 'ghost', 'key', 'lightning', 'star', 'sword', 'train',
+        'dog', 'cat', 'rabbit', 'lion', 'tiger', 'bear', 'elephant',
+        'monkey', 'giraffe', 'zebra', 'fox', 'wolf', 'pig', 'cow',
+        'horse', 'sheep', 'deer', 'frog', 'snake', 'turtle', 'mouse',
+        'squirrel', 'panda', 'kangaroo', 'hippo', 'rhino', 'camel',
+        'duck', 'chicken', 'snail',
       ],
     },
     food: {
       name: 'Food',
       words: [
-        'apple', 'banana', 'pineapple', 'pizza', 'sandwich',
-        'mushroom', 'cactus', 'cake', 'donut', 'noodles', 'pancake',
-        'popcorn', 'hamburger', 'ice cream', 'cherry', 'strawberry',
-        'watermelon', 'carrot', 'egg', 'bread',
-      ],
-    },
-    nature: {
-      name: 'Nature',
-      words: [
-        'forest', 'island', 'mountain', 'rainbow', 'tree', 'volcano',
-        'waterfall', 'tornado', 'dolphin', 'elephant', 'jellyfish',
-        'octopus', 'desert', 'river', 'lake', 'cave', 'whale', 'snake',
-        'penguin', 'shark',
-      ],
-    },
-    animals: {
-      name: 'Animals',
-      words: [
-        'cat', 'dog', 'lion', 'tiger', 'bear', 'rabbit', 'fox',
-        'monkey', 'giraffe', 'zebra', 'frog', 'owl', 'bee', 'spider',
-        'crab', 'turtle', 'horse', 'cow', 'pig', 'sheep', 'deer',
-        'kangaroo', 'panda', 'crocodile',
-      ],
-    },
-    sports: {
-      name: 'Sports',
-      words: [
-        'soccer', 'basketball', 'baseball', 'tennis', 'golf', 'boxing',
-        'skiing', 'surfing', 'bowling', 'archery', 'swimming', 'cycling',
-        'badminton', 'skating', 'volleyball', 'darts',
-      ],
-    },
-    vehicles: {
-      name: 'Vehicles',
-      words: [
-        'car', 'bus', 'airplane', 'helicopter', 'bicycle', 'motorcycle',
-        'ship', 'truck', 'taxi', 'tractor', 'ambulance', 'scooter',
-        'sailboat', 'hot air balloon', 'fire truck', 'canoe',
-      ],
-    },
-    household: {
-      name: 'Household',
-      words: [
-        'chair', 'table', 'lamp', 'bed', 'sofa', 'mirror', 'toothbrush',
-        'spoon', 'fork', 'cup', 'broom', 'bucket', 'pillow', 'blanket',
-        'towel', 'plate', 'knife', 'fan', 'kettle', 'vase',
-      ],
-    },
-    body: {
-      name: 'Body',
-      words: [
-        'eye', 'ear', 'nose', 'mouth', 'hand', 'foot', 'heart', 'brain',
-        'tooth', 'hair', 'finger', 'lips', 'bone', 'tongue',
-      ],
-    },
-    clothing: {
-      name: 'Clothing',
-      words: [
-        'shirt', 'pants', 'dress', 'skirt', 'jacket', 'socks', 'shoes',
-        'boots', 'gloves', 'scarf', 'tie', 'belt', 'ring', 'sunglasses',
-      ],
-    },
-    instruments: {
-      name: 'Instruments',
-      words: [
-        'violin', 'drum', 'flute', 'trumpet', 'harp', 'saxophone',
-        'cello', 'accordion', 'tambourine', 'harmonica', 'xylophone',
-        'trombone',
-      ],
-    },
-    jobs: {
-      name: 'Jobs',
-      words: [
-        'doctor', 'nurse', 'teacher', 'chef', 'firefighter',
-        'police officer', 'pilot', 'farmer', 'astronaut', 'painter',
-        'scientist', 'judge', 'sailor', 'magician', 'clown', 'detective',
-      ],
-    },
-    sea: {
-      name: 'Sea Life',
-      words: [
-        'seahorse', 'starfish', 'lobster', 'shrimp', 'squid', 'seal',
-        'walrus', 'pufferfish', 'clownfish', 'stingray', 'eel', 'oyster',
-        'swordfish', 'sea turtle', 'hermit crab', 'goldfish', 'sea otter',
-        'narwhal',
-      ],
-    },
-    birds: {
-      name: 'Birds & Bugs',
-      words: [
-        'eagle', 'parrot', 'flamingo', 'peacock', 'swan', 'ostrich',
-        'woodpecker', 'hummingbird', 'rooster', 'duck', 'ladybug',
-        'dragonfly', 'ant', 'grasshopper', 'snail', 'caterpillar',
-        'mosquito', 'beetle',
+        'pizza', 'hamburger', 'sandwich', 'bread', 'rice', 'noodles',
+        'ramen', 'egg', 'cake', 'donut', 'cookie', 'ice cream', 'candy',
+        'chocolate', 'popcorn', 'french fries', 'hotdog', 'dumpling',
+        'sushi', 'cheese', 'milk', 'gimbap', 'pancake', 'fried chicken',
+        'soup',
       ],
     },
     produce: {
       name: 'Fruits & Veggies',
       words: [
-        'grapes', 'orange', 'lemon', 'peach', 'pear', 'avocado', 'lime',
-        'coconut', 'corn', 'pumpkin', 'broccoli', 'eggplant',
-        'chili pepper', 'onion', 'potato', 'tomato', 'garlic', 'mango',
+        'apple', 'banana', 'orange', 'grape', 'strawberry', 'watermelon',
+        'peach', 'pear', 'lemon', 'cherry', 'pineapple', 'melon', 'kiwi',
+        'tomato', 'carrot', 'potato', 'corn', 'pumpkin', 'cucumber',
+        'onion', 'cabbage', 'mushroom', 'chili pepper', 'garlic',
+        'sweet potato',
       ],
     },
-    fantasy: {
-      name: 'Fantasy',
+    household: {
+      name: 'Household',
       words: [
-        'mermaid', 'fairy', 'wizard', 'witch', 'vampire', 'zombie',
-        'genie', 'phoenix', 'knight', 'mummy', 'werewolf', 'alien',
-        'yeti', 'dwarf', 'elf', 'griffin', 'cyclops', 'centaur',
+        'chair', 'table', 'bed', 'sofa', 'lamp', 'clock', 'mirror',
+        'door', 'window', 'key', 'umbrella', 'candle', 'broom', 'pillow',
+        'blanket', 'towel', 'soap', 'toothbrush', 'comb', 'trash can',
+        'bucket', 'fan', 'television', 'telephone', 'ladder', 'scissors',
+        'vase', 'picture frame', 'light bulb', 'calendar',
       ],
     },
-    objects: {
-      name: 'Everyday Objects',
+    kitchen: {
+      name: 'Kitchen',
       words: [
-        'backpack', 'headphones', 'light bulb', 'balloon', 'gift box',
-        'traffic light', 'mailbox', 'trophy', 'medal', 'magnifying glass',
-        'hourglass', 'padlock', 'envelope', 'battery', 'wallet',
-        'suitcase', 'binoculars', 'fire extinguisher', 'dice', 'bell',
+        'spoon', 'fork', 'knife', 'chopsticks', 'plate', 'bowl', 'cup',
+        'mug', 'pot', 'frying pan', 'kettle', 'refrigerator', 'oven',
+        'microwave', 'bottle',
+      ],
+    },
+    vehicles: {
+      name: 'Vehicles',
+      words: [
+        'car', 'bus', 'taxi', 'truck', 'bicycle', 'motorcycle', 'train',
+        'subway', 'airplane', 'helicopter', 'ship', 'boat', 'rocket',
+        'ambulance', 'fire truck', 'police car', 'scooter', 'tractor',
+        'hot air balloon', 'submarine',
+      ],
+    },
+    nature: {
+      name: 'Nature',
+      words: [
+        'sun', 'moon', 'star', 'cloud', 'rain', 'snow', 'rainbow',
+        'lightning', 'mountain', 'river', 'sea', 'beach', 'tree',
+        'flower', 'grass', 'leaf', 'rock', 'fire', 'water', 'snowman',
+        'island', 'forest', 'cave', 'waterfall', 'volcano',
+      ],
+    },
+    body: {
+      name: 'Body',
+      words: [
+        'eye', 'nose', 'mouth', 'ear', 'hand', 'foot', 'arm', 'leg',
+        'head', 'hair', 'tooth', 'tongue', 'finger', 'heart', 'face',
+        'knee', 'shoulder', 'belly',
+      ],
+    },
+    clothing: {
+      name: 'Clothing',
+      words: [
+        'shirt', 't-shirt', 'pants', 'dress', 'skirt', 'jacket', 'coat',
+        'sweater', 'socks', 'shoes', 'boots', 'hat', 'gloves', 'scarf',
+        'belt', 'tie', 'glasses', 'ring', 'watch', 'backpack',
+      ],
+    },
+    sports: {
+      name: 'Sports',
+      words: [
+        'soccer', 'basketball', 'baseball', 'tennis', 'badminton',
+        'table tennis', 'volleyball', 'golf', 'swimming', 'running',
+        'skiing', 'skating', 'boxing', 'bowling', 'archery', 'jump rope',
+        'taekwondo', 'yoga',
+      ],
+    },
+    jobs: {
+      name: 'Jobs',
+      words: [
+        'doctor', 'nurse', 'teacher', 'police officer', 'firefighter',
+        'chef', 'farmer', 'pilot', 'singer', 'painter', 'soldier',
+        'scientist', 'baker', 'hairdresser', 'dentist', 'astronaut',
+      ],
+    },
+    stationery: {
+      name: 'School Supplies',
+      words: [
+        'pencil', 'pen', 'eraser', 'ruler', 'crayon', 'notebook', 'book',
+        'glue', 'paintbrush', 'marker', 'paper', 'calculator', 'chalk',
+        'globe', 'pencil case',
+      ],
+    },
+    places: {
+      name: 'Places',
+      words: [
+        'house', 'school', 'hospital', 'church', 'castle', 'tower',
+        'bridge', 'lighthouse', 'tent', 'store', 'bank', 'library',
+        'park', 'train station', 'windmill',
+      ],
+    },
+    instruments: {
+      name: 'Instruments',
+      words: [
+        'piano', 'guitar', 'violin', 'drum', 'flute', 'trumpet',
+        'recorder', 'harmonica', 'triangle', 'tambourine', 'xylophone',
+        'cello',
+      ],
+    },
+    toys: {
+      name: 'Toys',
+      words: [
+        'ball', 'balloon', 'kite', 'doll', 'teddy bear', 'robot',
+        'blocks', 'spinning top', 'yo-yo', 'marble', 'slide', 'swing',
+        'seesaw', 'puzzle', 'dice', 'toy car',
       ],
     },
   },
