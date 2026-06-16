@@ -1,6 +1,6 @@
 const ROOM_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 
-export function generateRoomCode(length = 8): string {
+export function generateRoomCode(length = 6): string {
   let code = '';
   for (let i = 0; i < length; i++) {
     code += ROOM_ALPHABET[Math.floor(Math.random() * ROOM_ALPHABET.length)];

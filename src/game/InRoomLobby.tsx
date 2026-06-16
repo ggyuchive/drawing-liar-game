@@ -60,7 +60,10 @@ export default function InRoomLobby({
                 value={config.totalRounds}
                 onChange={(e) =>
                   onConfigChange({
-                    totalRounds: Math.max(1, Number(e.target.value) || 1),
+                    totalRounds: Math.min(
+                      10,
+                      Math.max(1, Number(e.target.value) || 1),
+                    ),
                   })
                 }
               />
@@ -74,7 +77,10 @@ export default function InRoomLobby({
                 value={config.turnsPerPlayer}
                 onChange={(e) =>
                   onConfigChange({
-                    turnsPerPlayer: Math.max(1, Number(e.target.value) || 1),
+                    turnsPerPlayer: Math.min(
+                      5,
+                      Math.max(1, Number(e.target.value) || 1),
+                    ),
                   })
                 }
               />

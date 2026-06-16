@@ -1,5 +1,6 @@
 import { useT } from '../i18n';
-import type { CanvasPresence, Round } from '../types';
+import { REVEAL_TIME_MS, type CanvasPresence, type Round } from '../types';
+import PhaseTimer from './PhaseTimer';
 import { tallyVotes } from './state';
 
 type Props = {
@@ -67,6 +68,13 @@ export default function Reveal({ round, presences }: Props) {
         )}
       </p>
 
+      <div className="reveal__next">
+        <PhaseTimer
+          durationMs={REVEAL_TIME_MS}
+          resetKey={round.index}
+          label={t.guessIn}
+        />
+      </div>
     </div>
   );
 }

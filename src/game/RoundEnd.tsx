@@ -1,22 +1,14 @@
 import { keywordAt, useLocale, useT } from '../i18n';
-import type { CanvasPresence, Game } from '../types';
+import { ROUNDEND_TIME_MS, type CanvasPresence, type Game } from '../types';
+import PhaseTimer from './PhaseTimer';
 import { roundDeltas } from './state';
 
 type Props = {
   game: Game;
-  isHost: boolean;
   presences: Array<{ clientID: string; presence: CanvasPresence }>;
-  onNext: () => void;
-  onFinish: () => void;
 };
 
-export default function RoundEnd({
-  game,
-  isHost,
-  presences,
-  onNext,
-  onFinish,
-}: Props) {
+export default function RoundEnd({ game, presences }: Props) {
   const t = useT().roundEnd;
   const { locale } = useLocale();
   const { round, scores, config } = game;
@@ -77,21 +69,13 @@ export default function RoundEnd({
         })}
       </ul>
 
-      {isHost ? (
-        lastRound ? (
-          <button className="roundEnd__primary" onClick={onFinish}>
-            {t.seeFinal}
-          </button>
-        ) : (
-          <button className="roundEnd__primary" onClick={onNext}>
-            {t.nextRound}
-          </button>
-        )
-      ) : (
-        <p className="roundEnd__waiting">
-          {lastRound ? t.waitingWrap : t.waitingNext}
-        </p>
-      )}
+      <div className="roundEnd__next">
+        <PhaseTimer
+          durationMs={ROUNDEND_TIME_MS}
+          resetKey={round.index}
+          label={lastRound ? t.finalIn : t.nextIn}
+        />
+      </div>
     </div>
   );
 }

@@ -56,6 +56,10 @@ export type Round = {
   liarId: string;
   playerOrder: Array<string>;
   turnIndex: number;
+  // Turns each player draws THIS round. Starts = config.turnsPerPlayer;
+  // a tied vote adds one (the tie-break), so the total can grow once
+  // mid-round instead of restarting the drawing.
+  turnsPerPlayer: number;
   strokesDone: number;
   votes: Record<string, string>;
   liarGuess: string;
@@ -106,7 +110,10 @@ export const VOTE_TIME_MS = 30_000;
 export const GUESS_TIME_MS = 30_000;
 // How long the vote result is shown before the liar's guess starts
 // (auto-advance; there is no manual "continue").
-export const REVEAL_TIME_MS = 3_000;
+export const REVEAL_TIME_MS = 5_000;
+// How long the round-end scoreboard is shown before the next round
+// auto-starts (or the final ranking shows on the last round).
+export const ROUNDEND_TIME_MS = 5_000;
 
 const emptyRound = (): Round => ({
   index: 0,
@@ -117,6 +124,7 @@ const emptyRound = (): Round => ({
   liarId: '',
   playerOrder: [],
   turnIndex: 0,
+  turnsPerPlayer: 0,
   strokesDone: 0,
   votes: {},
   liarGuess: '',

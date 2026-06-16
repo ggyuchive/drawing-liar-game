@@ -1,4 +1,4 @@
-import { type ReactNode } from 'react';
+import { useEffect, useRef, type ReactNode } from 'react';
 import { useDocument, type JSONObject } from '@yorkie-js/react';
 import Canvas from '../Canvas';
 import BoardView from './BoardView';
@@ -23,6 +23,7 @@ import { deckSizes, useLocale, useT } from '../i18n';
 import {
   DEFAULT_BRUSH_BUDGET_PX,
   DEFAULT_TURN_TIME_MS,
+  ROUNDEND_TIME_MS,
   initialGame,
 } from '../types';
 import type { CanvasPresence, Game, GameConfig } from '../types';
@@ -159,6 +160,7 @@ export default function RoomPhase({
         liarId: assigned ? assigned.liarId : '',
         playerOrder: order,
         turnIndex: 0,
+        turnsPerPlayer: r.game.config.turnsPerPlayer,
         strokesDone: 0,
         votes: {},
         liarGuess: '',
@@ -176,6 +178,98 @@ export default function RoomPhase({
       r.game.phase = 'drawing';
     });
   };
+
+  // Start the next round (host only). Lifted out of the roundEnd case so
+  // the auto-advance timer can call the exact same logic the old button
+  // used. Snapshots present non-spectators into a fresh player order.
+  const startNextRound = async () => {
+    if (!isHost || !myActorID) return;
+    const order = pickPlayerOrder(
+      uniquePresences
+        .filter((p) => !p.presence.spectator)
+        .map((p) => p.presence.uid),
+      shuffle,
+    );
+    if (order.length < 3) return;
+    const decks = deckSizes(locale.code);
+    let result;
+    try {
+      result = await startRound({
+        room,
+        uid: myActorID,
+        decks: [...decks],
+        playerUids: order,
+      });
+    } catch (e) {
+      console.error('next round start failed', e);
+      setRoundError(true);
+      return;
+    }
+    setRoundError(false);
+    const assigned = result.assignment;
+    update((r) => {
+      const nextIndex = r.game.round.index + 1;
+      r.game.round = {
+        index: nextIndex,
+        roundId: result.roundId,
+        keyword: '',
+        keywordDeck: assigned ? assigned.deck : '',
+        keywordIndex: assigned ? assigned.keywordIndex : -1,
+        liarId: assigned ? assigned.liarId : '',
+        playerOrder: order,
+        turnIndex: 0,
+        turnsPerPlayer: r.game.config.turnsPerPlayer,
+        strokesDone: 0,
+        votes: {},
+        liarGuess: '',
+        guessCorrect: false,
+        wasCaught: false,
+        tieBreakUsed: false,
+        brushBudgetPx: r.game.config.brushBudgetPx,
+        brushUsedPx: 0,
+        turnStartedAt: Date.now(),
+      };
+      while (r.strokes.length > 0) r.strokes.delete?.(0);
+      for (const id of order) {
+        // Read access (not `in`, which is unreliable on the Yorkie proxy
+        // and was resetting every score to 0 each round). Only seed
+        // genuinely-new players at 0.
+        if (r.game.scores[id] === undefined) r.game.scores[id] = 0;
+      }
+      // Keep existing players' colors; give any newcomer an unused one so
+      // the per-game assignment stays stable.
+      r.game.colors = fillMissingColors(order, { ...r.game.colors }, PLAYER_COLORS);
+      r.game.phase = 'drawing';
+    });
+  };
+
+  const finishGame = () => {
+    if (!isHost) return;
+    update((r) => {
+      r.game.phase = 'finished';
+    });
+  };
+
+  // Auto-advance out of roundEnd after a short hold — no manual "next"
+  // button. Host owns the write; the last round goes to the final
+  // ranking, every other round starts the next one. The latest handlers
+  // are kept in a ref so the timer effect can depend only on the phase +
+  // round (uniquePresences changes every render and would reset it).
+  const lastRound = root.game.round.index >= root.game.config.totalRounds;
+  const autoAdvanceRef = useRef<() => void>(() => {});
+  useEffect(() => {
+    autoAdvanceRef.current = () => {
+      if (lastRound) finishGame();
+      else startNextRound();
+    };
+  });
+  const phase = root.game.phase;
+  const roundIndex = root.game.round.index;
+  useEffect(() => {
+    if (phase !== 'roundEnd' || !isHost) return;
+    const id = setTimeout(() => autoAdvanceRef.current(), ROUNDEND_TIME_MS);
+    return () => clearTimeout(id);
+  }, [phase, roundIndex, isHost]);
 
   switch (root.game.phase) {
     case 'lobby':
@@ -249,83 +343,9 @@ export default function RoomPhase({
       );
     }
     case 'roundEnd': {
-      const onNext = async () => {
-        if (!isHost || !myActorID) return;
-        const order = pickPlayerOrder(
-          uniquePresences
-            .filter((p) => !p.presence.spectator)
-            .map((p) => p.presence.uid),
-          shuffle,
-        );
-        if (order.length < 3) return;
-        const decks = deckSizes(locale.code);
-        let result;
-        try {
-          result = await startRound({
-            room,
-            uid: myActorID,
-            decks: [...decks],
-            playerUids: order,
-          });
-        } catch (e) {
-          console.error('next round start failed', e);
-          setRoundError(true);
-          return;
-        }
-        setRoundError(false);
-        const assigned = result.assignment;
-        update((r) => {
-          const nextIndex = r.game.round.index + 1;
-          r.game.round = {
-            index: nextIndex,
-            roundId: result.roundId,
-            keyword: '',
-            keywordDeck: assigned ? assigned.deck : '',
-            keywordIndex: assigned ? assigned.keywordIndex : -1,
-            liarId: assigned ? assigned.liarId : '',
-            playerOrder: order,
-            turnIndex: 0,
-            strokesDone: 0,
-            votes: {},
-            liarGuess: '',
-            guessCorrect: false,
-            wasCaught: false,
-            tieBreakUsed: false,
-            brushBudgetPx: r.game.config.brushBudgetPx,
-            brushUsedPx: 0,
-            turnStartedAt: Date.now(),
-          };
-          while (r.strokes.length > 0) r.strokes.delete?.(0);
-          for (const id of order) {
-            // Read access (not `in`, which is unreliable on the
-            // Yorkie proxy and was resetting every score to 0 each
-            // round). Only seed genuinely-new players at 0.
-            if (r.game.scores[id] === undefined) r.game.scores[id] = 0;
-          }
-          // Keep existing players' colors; give any newcomer an
-          // unused one so the per-game assignment stays stable.
-          r.game.colors = fillMissingColors(
-            order,
-            { ...r.game.colors },
-            PLAYER_COLORS,
-          );
-          r.game.phase = 'drawing';
-        });
-      };
-      const onFinish = () => {
-        if (!isHost) return;
-        update((r) => {
-          r.game.phase = 'finished';
-        });
-      };
+      // Advancing is automatic (see the auto-advance effect above).
       return withBoard(
-        <RoundEnd
-          game={root.game}
-          isHost={isHost}
-          presences={displayPresences}
-          onNext={onNext}
-          onFinish={onFinish}
-        />,
+        <RoundEnd game={root.game} presences={displayPresences} />,
       );
     }
     case 'voting': {

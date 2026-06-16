@@ -37,6 +37,41 @@
   transform: translateY(-1px);
 }
 
+/* How-to (?) button + language select in the top-right bar. */
+.lobby__topBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  padding: 0;
+  border-radius: 999px;
+  font-weight: 700;
+  color: var(--text);
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  cursor: pointer;
+}
+.lobby__topBtn:hover {
+  color: var(--accent);
+}
+.lobby__topLang {
+  height: 42px;
+  padding: 0 12px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--bg-elev);
+  color: var(--text);
+  font: inherit;
+  font-size: 14px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  cursor: pointer;
+}
+.lobby__card .lobby__heading {
+  margin-bottom: 20px;
+}
+
 /* Live count, a pill sitting to the left of the GitHub link. */
 .lobby__active {
   display: inline-flex;
@@ -613,25 +648,12 @@
   font-weight: 700;
 }
 
-.roundEnd__primary {
-  background: var(--accent);
-  color: white;
-  border-color: var(--accent);
-  font-weight: 600;
-  padding: 12px;
-}
-
-.roundEnd__primary:hover:not(:disabled) {
-  filter: brightness(1.05);
-}
-
-.roundEnd__waiting {
-  margin: 0;
-  color: var(--text-soft);
-  text-align: center;
-  padding: 12px;
-  border: 1px dashed var(--border);
-  border-radius: 10px;
+/* Auto-advance countdown row (round-end → next round, reveal → guess). */
+.roundEnd__next,
+.reveal__next {
+  display: flex;
+  justify-content: center;
+  padding-top: 4px;
 }
 
 /* ---------- Reveal ---------- */

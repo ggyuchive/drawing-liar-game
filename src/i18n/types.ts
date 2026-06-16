@@ -93,7 +93,8 @@ export type LocaleUI = {
     theLiar: string;
     notTheLiar: string;
     tie: string;
-    continueAction: string;
+    // Label shown beside the auto-advance countdown to the guess phase.
+    guessIn: string;
   };
   guessing: {
     othersTitle: (name: string) => string;
@@ -118,10 +119,9 @@ export type LocaleUI = {
       guess: string,
       keyword: string,
     ) => string;
-    nextRound: string;
-    seeFinal: string;
-    waitingWrap: string;
-    waitingNext: string;
+    // Labels beside the auto-advance countdown (no manual button).
+    nextIn: string;
+    finalIn: string;
   };
   finished: {
     title: string;

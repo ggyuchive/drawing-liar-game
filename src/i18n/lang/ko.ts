@@ -253,7 +253,7 @@ const ko: Locale = {
       theLiar: '라이어가 맞습니다!',
       notTheLiar: '라이어가 아닙니다.',
       tie: '동점이라 아무도 확실히 지목되지 않았어요 — 라이어가 빠져나갑니다.',
-      continueAction: '계속',
+      guessIn: '추측 시작까지',
     },
     guessing: {
       othersTitle: (name) => `${name} 님이 정답을 추측 중…`,
@@ -273,11 +273,9 @@ const ko: Locale = {
       outcomeEscapedGuessed: (liar, keyword) =>
         `라이어(${liar} 님)가 완벽하게 속이고 "${keyword}"까지 맞혔습니다. 완벽한 라운드.`,
       outcomeEscapedBlanked: (liar, guess, keyword) =>
-        `${liar} 님이 속이는 데는 성공했지만 "${guess}"라고 답했습니다 — 정답은 "${keyword}". 작은 위안.`,
-      nextRound: '다음 라운드',
-      seeFinal: '최종 순위 보기',
-      waitingWrap: '방장이 마무리하기를 기다리는 중…',
-      waitingNext: '방장이 다음 라운드 시작을 기다리는 중…',
+        `${liar} 님이 속이는 데는 성공했지만 "${guess}"라고 답했습니다 — 정답은 "${keyword}".`,
+      nextIn: '다음 라운드까지',
+      finalIn: '최종 순위까지',
     },
     finished: {
       title: '최종 순위',

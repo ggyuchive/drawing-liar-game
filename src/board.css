@@ -11,6 +11,9 @@
   max-width: 1000px;
   min-width: 0;
   min-height: 0;
+  /* Fill the play column exactly so the canvas can flex-shrink to fit
+     between the HUD and gauges — never tall enough to need a scroll. */
+  height: 100%;
 }
 
 /* ---------- Round HUD ---------- */
@@ -62,12 +65,30 @@
   width: 100%;
   min-width: 0;
   align-items: stretch;
+  /* Take all remaining height in the phase column; the surface fits
+     inside whatever is left after the HUD label above. */
+  flex: 1;
+  min-height: 0;
 }
 
 .canvas__hud {
   font-size: 14px;
   color: var(--text-soft);
   text-align: center;
+  flex: 0 0 auto;
+}
+
+/* The flex region the canvas fits into. `container-type: size` lets the
+   surface size itself off this box's real width/height (cqw/cqh), and we
+   center the fitted surface inside it. */
+.canvas__stage {
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  container-type: size;
 }
 
 .canvas__hudMine {
@@ -84,16 +105,13 @@
   border: 1px solid var(--border);
   border-radius: 12px;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.06);
-  /* Fill the available width but never break the 3:2 ratio. Capping
-     the *width* (derived from the height limit) instead of the height
-     keeps the ratio intact on short/wide screens. */
-  width: 100%;
-  height: auto;
+  /* Fit the 3:2 surface inside the stage with zero ratio risk: pin only
+     the HEIGHT (to the smaller of the stage's height or the height that
+     the stage's width allows), and let width follow from aspect-ratio.
+     One explicit axis + aspect-ratio = the ratio can never be violated. */
+  height: min(100cqh, calc(100cqw * 2 / 3));
+  width: auto;
   aspect-ratio: 3 / 2;
-  max-width: calc(70vh * 3 / 2);
-  /* When max-width caps the surface narrower than the column, center it
-     (otherwise the column's align-items:stretch pins it to the left). */
-  margin-inline: auto;
   touch-action: none;
   cursor: crosshair;
 }
@@ -231,8 +249,15 @@
 
 .room__main {
   flex: 1;
-  display: grid;
-  place-items: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  /* `safe center` keeps content centered when it fits but aligns it to
+     the top (instead of clipping the start edge) if it ever overflows —
+     so the HUD is always reachable. The drawing phase fills this column
+     exactly and never overflows; only the tall judge/lobby views might
+     scroll, and then they top-align cleanly. */
+  justify-content: safe center;
   padding: 24px;
   min-width: 0;
   min-height: 0;
@@ -466,7 +491,9 @@
   min-height: 0;
 }
 
-/* Chat docked to the bottom: full width, capped height, list scrolls. */
+/* Chat docked to the bottom: full width, capped height, list scrolls.
+   The board above just gets a shorter column and the canvas flex-fits
+   it — no canvas-size hack required. */
 .room__body--chat-bottom .chat {
   width: auto;
   border-left: none;
@@ -571,6 +598,8 @@
     border-top: 1px solid var(--border);
     max-height: 35vh;
   }
+  /* No canvas-size hack needed: the chat docking below simply shrinks
+     the play column, and the canvas flex-fits whatever height is left. */
 }
 
 /* Step 2 — even profiles + middle don't fit: move the profiles up to
@@ -584,12 +613,9 @@
     flex-direction: column;
   }
 
-  /* Top-align the play area so the HUD (role / drawer / turn) is always
-     visible; the canvas sits below and scrolls into view if needed. */
-  .room__main {
-    align-items: start;
-  }
-
+  /* Chat is closed by default at this width (Room's chatOpen default);
+     the toggle/dock buttons stay visible and just shrink with the bar.
+     The panel docks below when the user opens it. */
   .chat {
     width: auto;
     border-left: none;
@@ -597,23 +623,48 @@
     max-height: 30vh;
   }
 
+  /* Top bar: never wrap to a second line — shrink everything instead. */
+  .room__header {
+    flex-wrap: nowrap;
+    gap: 6px;
+    padding: 8px 10px;
+    overflow-x: auto;
+  }
+  .room__label {
+    font-size: 12px;
+  }
+  .room__title {
+    gap: 6px;
+  }
+  .room__header button,
+  .room__lang {
+    font-size: 12px;
+    padding: 4px 8px;
+  }
+  .room__help {
+    width: 26px;
+    height: 26px;
+    padding: 0;
+  }
+
   /* Keep the brush meter + timer on one row to save vertical space. */
   .phase__gauges {
     flex-wrap: wrap;
   }
 
-  .canvas__surface {
-    max-width: calc(40vh * 3 / 2);
-  }
-
+  /* Profile list: a single horizontal row that scrolls sideways —
+     never a second line. */
   .room__profiles {
     width: auto;
     flex-direction: row;
-    flex-wrap: wrap;
-    justify-content: center;
+    flex-wrap: nowrap;
+    justify-content: flex-start;
+    gap: 8px;
     border-right: none;
     border-bottom: 1px solid var(--border);
-    max-height: 20vh;
+    max-height: none;
+    overflow-x: auto;
+    overflow-y: hidden;
   }
 
   .profile {

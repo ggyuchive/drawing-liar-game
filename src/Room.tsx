@@ -88,6 +88,10 @@ function RoomInner({
   );
   const [chatPos, setChatPos] = useState<'side' | 'bottom'>('side');
   const [highlightId, setHighlightId] = useState<string | null>(null);
+  // The profile strip; used to scroll the current drawer into view when
+  // it overflows (a horizontal row on narrow screens, a vertical column
+  // on desktop).
+  const profilesRef = useRef<HTMLElement>(null);
   const [howToOpen, setHowToOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   // Surfaced when the keyword-secrecy server can't be reached to start
@@ -293,7 +297,7 @@ function RoomInner({
         r.game.round.strokesDone,
         r.game.round.turnIndex,
         order.length,
-        r.game.config.turnsPerPlayer,
+        r.game.round.turnsPerPlayer || r.game.config.turnsPerPlayer,
       );
       r.game.round.strokesDone = adv.strokesDone;
       if (adv.toVoting) {
@@ -417,6 +421,20 @@ function RoomInner({
     };
   }, [loading, error, phase, roundId, docHasSecret, myActorID, room]);
 
+  // Keep the current drawer's profile visible when the strip overflows:
+  // scroll it into view each time the turn moves to a new drawer.
+  // `block:'nearest'`/`inline:'center'` only nudge the scrollable strip,
+  // never the page. Keyed on the drawer + phase so it fires on rotation.
+  useEffect(() => {
+    if (phase !== 'drawing' || !drawerId) return;
+    const el = profilesRef.current?.querySelector('.profile--drawing');
+    el?.scrollIntoView({
+      behavior: 'smooth',
+      inline: 'center',
+      block: 'nearest',
+    });
+  }, [phase, drawerId]);
+
   // Heartbeat the active room/user counter while attached (best-effort).
   useEffect(() => {
     if (loading || error || !myActorID) return;
@@ -459,16 +477,23 @@ function RoomInner({
 
   const resolveVoting = useCallback(async () => {
     const ctx = revealCtxRef.current;
-    // A tied vote with the one-shot tie-break still available → grant one
-    // more drawing cycle (existing strokes kept, so players add clues)
-    // and a fresh vote. A second tie just resolves as "not caught".
+    // A tied vote with the one-shot tie-break still available → give
+    // everyone ONE more turn (not a full restart) and a fresh vote. A
+    // second tie resolves as "not caught" (the liar wins).
     if (ctx.tied && !ctx.tieBreakUsed) {
       update((r) => {
         if (r.game.phase !== 'voting') return;
+        const order = r.game.round.playerOrder;
         r.game.round.tieBreakUsed = true;
         r.game.round.votes = {};
-        r.game.round.turnIndex = 0;
-        r.game.round.strokesDone = 0;
+        // Extend this round's turn budget by one per player and resume
+        // from the next drawer, keeping strokesDone so the counter
+        // continues (e.g. 6/6 → 7/9) instead of restarting at 1.
+        r.game.round.turnsPerPlayer =
+          (r.game.round.turnsPerPlayer || r.game.config.turnsPerPlayer) + 1;
+        if (order.length > 0) {
+          r.game.round.turnIndex = (r.game.round.turnIndex + 1) % order.length;
+        }
         r.game.round.brushUsedPx = 0;
         r.game.round.turnStartedAt = Date.now();
         r.game.phase = 'drawing';
@@ -782,13 +807,10 @@ function RoomInner({
               </option>
             ))}
           </select>
-          <button
-            className="room__chatToggle"
-            onClick={() => setChatOpen((o) => !o)}
-            aria-pressed={chatOpen}
-          >
-            {chatOpen ? t.chat.hide : t.chat.show}
-          </button>
+          {/* Dock toggle sits to the LEFT of the open/close toggle, so the
+              open/close button stays anchored next to "Leave" and doesn't
+              shift when the dock button appears — you can open then close
+              chat at the same pointer position. */}
           {chatOpen && (
             <button
               className="room__chatDock"
@@ -799,6 +821,13 @@ function RoomInner({
               {chatPos === 'side' ? t.chat.dockBottom : t.chat.dockSide}
             </button>
           )}
+          <button
+            className="room__chatToggle"
+            onClick={() => setChatOpen((o) => !o)}
+            aria-pressed={chatOpen}
+          >
+            {chatOpen ? t.chat.hide : t.chat.show}
+          </button>
           <button className="room__leave" onClick={handleLeave}>
             {t.common.leave}
           </button>
@@ -819,7 +848,7 @@ function RoomInner({
 
       <div className={`room__body room__body--chat-${chatPos}`}>
         <div className="room__stage">
-          <aside className="room__profiles">
+          <aside className="room__profiles" ref={profilesRef}>
             {profiles.map(({ presence }) => renderProfile(presence))}
           </aside>
           <main className="room__main">

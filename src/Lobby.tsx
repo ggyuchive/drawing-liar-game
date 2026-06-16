@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { LOCALE_LIST, useLocale, useT } from './i18n';
+import HowToModal from './game/HowToModal';
 import { fetchActiveCounts, type ActiveCounts } from './rooms';
 import {
   generateRoomCode,
@@ -16,10 +17,12 @@ type Props = {
 };
 
 export default function Lobby({ initialName, initialRoom, onEnter }: Props) {
-  const t = useT().joinLobby;
+  const ui = useT();
+  const t = ui.joinLobby;
   const { locale, setLocaleCode } = useLocale();
   const [name, setName] = useState(initialName);
   const [room, setRoom] = useState(initialRoom);
+  const [howToOpen, setHowToOpen] = useState(false);
   const trimmedName = name.trim();
 
   // Live active room + user counts (from the backend in prod; demo
@@ -55,7 +58,7 @@ export default function Lobby({ initialName, initialRoom, onEnter }: Props) {
 
   return (
     <div className="lobby">
-      {/* Top-right cluster: live counts, then the GitHub link. */}
+      {/* Top bar (right): live counts, how-to, language, GitHub. */}
       <div className="lobby__topRight">
         {counts !== null && (
           <span className="lobby__active">
@@ -63,6 +66,25 @@ export default function Lobby({ initialName, initialRoom, onEnter }: Props) {
             {t.activeCount(counts.rooms, counts.users)}
           </span>
         )}
+        <button
+          className="lobby__topBtn"
+          onClick={() => setHowToOpen(true)}
+          aria-label={ui.howTo.openLabel}
+        >
+          ?
+        </button>
+        <select
+          className="lobby__topLang"
+          value={locale.code}
+          onChange={(e) => setLocaleCode(e.target.value)}
+          aria-label={t.languageLabel}
+        >
+          {LOCALE_LIST.map((l) => (
+            <option key={l.code} value={l.code}>
+              {l.name}
+            </option>
+          ))}
+        </select>
         <a
           className="lobby__github"
           href={REPO_URL}
@@ -82,23 +104,7 @@ export default function Lobby({ initialName, initialRoom, onEnter }: Props) {
         </a>
       </div>
       <div className="lobby__card">
-        <div className="lobby__topRow">
-          <h1>Drawing Liar Game</h1>
-          <label className="lobby__lang">
-            <span className="lobby__langLabel">{t.languageLabel}</span>
-            <select
-              value={locale.code}
-              onChange={(e) => setLocaleCode(e.target.value)}
-            >
-              {LOCALE_LIST.map((l) => (
-                <option key={l.code} value={l.code}>
-                  {l.name}
-                </option>
-              ))}
-            </select>
-          </label>
-        </div>
-        <p className="lobby__tagline">{t.tagline}</p>
+        <h1 className="lobby__heading">Drawing Liar Game</h1>
 
         <label className="lobby__label">
           {t.yourName}
@@ -128,7 +134,7 @@ export default function Lobby({ initialName, initialRoom, onEnter }: Props) {
           value={room}
           onChange={(e) => setRoom(e.target.value.toUpperCase())}
           placeholder={t.roomCodePlaceholder}
-          maxLength={8}
+          maxLength={6}
           onKeyDown={(e) => {
             if (e.key === 'Enter' && !e.nativeEvent.isComposing)
               handleJoin(false);
@@ -151,6 +157,7 @@ export default function Lobby({ initialName, initialRoom, onEnter }: Props) {
           </button>
         </div>
       </div>
+      {howToOpen && <HowToModal onClose={() => setHowToOpen(false)} />}
     </div>
   );
 }

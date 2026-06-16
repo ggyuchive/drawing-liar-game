@@ -257,7 +257,7 @@ const en: Locale = {
       theLiar: 'the liar!',
       notTheLiar: 'not the liar.',
       tie: "It's a tie — no one was decisively accused, so the liar slips by.",
-      continueAction: 'Continue',
+      guessIn: 'Guessing in',
     },
     guessing: {
       othersTitle: (name) => `${name} is guessing…`,
@@ -277,11 +277,9 @@ const en: Locale = {
       outcomeEscapedGuessed: (liar, keyword) =>
         `The liar (${liar}) bluffed past you AND knew it was "${keyword}". Flawless.`,
       outcomeEscapedBlanked: (liar, guess, keyword) =>
-        `${liar} bluffed past you but guessed "${guess}" — it was "${keyword}". A small consolation for the room.`,
-      nextRound: 'Next round',
-      seeFinal: 'See final ranking',
-      waitingWrap: 'Waiting for host to wrap up…',
-      waitingNext: 'Waiting for host to start the next round…',
+        `${liar} bluffed past you but guessed "${guess}" — it was "${keyword}".`,
+      nextIn: 'Next round in',
+      finalIn: 'Final ranking in',
     },
     finished: {
       title: 'Final ranking',

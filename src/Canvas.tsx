@@ -205,21 +205,27 @@ export default function Canvas({
           </span>
         )}
       </div>
-      <canvas
-        ref={canvasRef}
-        width={CANVAS_WIDTH}
-        height={CANVAS_HEIGHT}
-        className={
-          isMyTurn ? 'canvas__surface' : 'canvas__surface canvas__surface--off'
-        }
-        aria-label={
-          isMyTurn ? t.yourTurn : drawerName ? t.drawing(drawerName) : t.waiting
-        }
-        onPointerDown={handlePointerDown}
-        onPointerMove={handlePointerMove}
-        onPointerUp={handlePointerUp}
-        onPointerCancel={handlePointerUp}
-      />
+      <div className="canvas__stage">
+        <canvas
+          ref={canvasRef}
+          width={CANVAS_WIDTH}
+          height={CANVAS_HEIGHT}
+          className={
+            isMyTurn ? 'canvas__surface' : 'canvas__surface canvas__surface--off'
+          }
+          aria-label={
+            isMyTurn
+              ? t.yourTurn
+              : drawerName
+                ? t.drawing(drawerName)
+                : t.waiting
+          }
+          onPointerDown={handlePointerDown}
+          onPointerMove={handlePointerMove}
+          onPointerUp={handlePointerUp}
+          onPointerCancel={handlePointerUp}
+        />
+      </div>
     </div>
   );
 }
