@@ -14,6 +14,7 @@ import {
 } from '@yorkie-js/react';
 import { StreamConnectionStatus } from '@yorkie-js/sdk';
 import Chat from './game/Chat';
+import ChatToasts from './game/ChatToasts';
 import HowToModal from './game/HowToModal';
 import RoomPhase from './game/RoomPhase';
 import { fetchRole, revealRound } from './game/secrets';
@@ -30,6 +31,7 @@ import {
   DEFAULT_TURN_TIME_MS,
   GUESS_TIME_MS,
   REVEAL_TIME_MS,
+  TIEBREAK_TIME_MS,
   VOTE_TIME_MS,
   initialGame,
 } from './types';
@@ -44,7 +46,12 @@ import {
 type Props = {
   room: string;
   name: string;
-  onLeave: () => void;
+  // True when joining/spectating: the room must already have another live
+  // player, else we bounce back to the lobby instead of opening a new one.
+  mustExist?: boolean;
+  onLeave: (opts?: { notFound?: boolean }) => void;
+  // Called once the room is confirmed real, so reloads skip the check.
+  onValidated?: (room: string) => void;
 };
 
 export type DocRoot = {
@@ -64,12 +71,16 @@ function RoomInner({
   room,
   myUid,
   myName,
+  mustExist,
   onLeave,
+  onValidated,
 }: {
   room: string;
   myUid: string;
   myName: string;
-  onLeave: () => void;
+  mustExist: boolean;
+  onLeave: (opts?: { notFound?: boolean }) => void;
+  onValidated: (room: string) => void;
 }) {
   const { root, presences, update, loading, error, connection } = useDocument<
     DocRoot,
@@ -108,6 +119,40 @@ function RoomInner({
   const ready = !loading && !error;
   const hostId = ready ? root.game.hostId : '';
   const disconnected = connection === StreamConnectionStatus.Disconnected;
+
+  // A room "exists" only if at least one OTHER live player is present —
+  // attaching to a code creates an empty Yorkie doc, so a typo'd code
+  // otherwise drops you into a phantom new room. When joining (mustExist)
+  // we wait a short grace for peers' presence to sync, then bounce back
+  // to the lobby with a transient error if we're still alone. Creators
+  // (and reloads of an already-entered room) skip this. The latest
+  // "someone else here" reading is kept in a ref so presence churn during
+  // the grace doesn't restart the timer.
+  const otherPresent =
+    ready && presences.some((p) => p.presence.uid !== myActorID);
+  const otherPresentRef = useRef(otherPresent);
+  useEffect(() => {
+    otherPresentRef.current = otherPresent;
+  });
+  // `confirmed` gates the room UI: until a join is confirmed real we show
+  // a neutral "joining…" screen instead of the waiting room, so a bad
+  // code never flashes the room before bouncing. Creators (and reloads of
+  // an already-entered room) start confirmed.
+  const [confirmed, setConfirmed] = useState(!mustExist);
+  useEffect(() => {
+    if (!otherPresent || confirmed) return;
+    onValidated(room);
+    // Deferred so the setState isn't synchronous inside the effect body.
+    const id = setTimeout(() => setConfirmed(true), 0);
+    return () => clearTimeout(id);
+  }, [otherPresent, confirmed, room, onValidated]);
+  useEffect(() => {
+    if (!mustExist || loading || error) return;
+    const id = setTimeout(() => {
+      if (!otherPresentRef.current) onLeave({ notFound: true });
+    }, 1500);
+    return () => clearTimeout(id);
+  }, [mustExist, loading, error, onLeave]);
 
   // Host election + promotion. The host is the lexicographically
   // smallest present uid. This both seeds the first host and re-elects
@@ -379,8 +424,14 @@ function RoomInner({
   const docLiarId = ready ? root.game.round.liarId : '';
   const docKeywordIndex = ready ? root.game.round.keywordIndex : -1;
   const docHasSecret = !!docLiarId || docKeywordIndex >= 0;
-  // Tie state for the one-shot tie-break (consumed in resolveVoting).
-  const voteTied = ready ? tallyVotes(root.game.round.votes).tied : false;
+  // Tie state for the one-shot tie-break (consumed in resolveVoting). A
+  // tie-break is warranted whenever the vote produced no single clear
+  // accusation: either two-plus players share the top (tied), OR nobody
+  // voted at all (accusedId === '', i.e. an all-abstain 0-vote round).
+  const voteTally = ready
+    ? tallyVotes(root.game.round.votes)
+    : { tied: false, accusedId: '', counts: {} };
+  const voteNeedsTieBreak = ready && (voteTally.tied || voteTally.accusedId === '');
   const tieBreakUsed = ready ? !!root.game.round.tieBreakUsed : false;
 
   // Fetch this client's own role + keyword for the drawing phase from
@@ -449,14 +500,14 @@ function RoomInner({
   const revealCtxRef = useRef<{
     roundId: string;
     hasSecret: boolean;
-    tied: boolean;
+    needsTieBreak: boolean;
     tieBreakUsed: boolean;
-  }>({ roundId: '', hasSecret: false, tied: false, tieBreakUsed: false });
+  }>({ roundId: '', hasSecret: false, needsTieBreak: false, tieBreakUsed: false });
   useEffect(() => {
     revealCtxRef.current = {
       roundId,
       hasSecret: docHasSecret,
-      tied: voteTied,
+      needsTieBreak: voteNeedsTieBreak,
       tieBreakUsed,
     };
   });
@@ -477,10 +528,15 @@ function RoomInner({
 
   const resolveVoting = useCallback(async () => {
     const ctx = revealCtxRef.current;
-    // A tied vote with the one-shot tie-break still available → give
-    // everyone ONE more turn (not a full restart) and a fresh vote. A
-    // second tie resolves as "not caught" (the liar wins).
-    if (ctx.tied && !ctx.tieBreakUsed) {
+    // No single clear accusation (a tie, or nobody voted) with the
+    // one-shot tie-break still available → give everyone ONE more turn
+    // (not a full restart) and a fresh vote. We don't jump straight back
+    // to drawing: enter the `tiebreak` phase, which shows a popup and
+    // auto-resumes after a few seconds (see the tie-break effect). The
+    // turn budget is extended now; `turnStartedAt` is set when drawing
+    // actually resumes so the popup doesn't eat the drawer's time. A
+    // second inconclusive vote resolves as "not caught" (the liar wins).
+    if (ctx.needsTieBreak && !ctx.tieBreakUsed) {
       update((r) => {
         if (r.game.phase !== 'voting') return;
         const order = r.game.round.playerOrder;
@@ -495,8 +551,7 @@ function RoomInner({
           r.game.round.turnIndex = (r.game.round.turnIndex + 1) % order.length;
         }
         r.game.round.brushUsedPx = 0;
-        r.game.round.turnStartedAt = Date.now();
-        r.game.phase = 'drawing';
+        r.game.phase = 'tiebreak';
       });
       return;
     }
@@ -569,6 +624,23 @@ function RoomInner({
     return () => clearTimeout(id);
   }, [loading, error, phase, paused, roundIndex, myActorID, hostId, update]);
 
+  // Tie-break popup auto-resumes drawing after a short hold. Host owns
+  // the write; `turnStartedAt` is set HERE (not when the popup opened) so
+  // the drawer gets a full turn after the countdown, not minus the hold.
+  useEffect(() => {
+    if (loading || error) return;
+    if (phase !== 'tiebreak' || paused) return;
+    if (!(myActorID && myActorID === hostId)) return;
+    const id = setTimeout(() => {
+      update((r) => {
+        if (r.game.phase !== 'tiebreak') return;
+        r.game.round.turnStartedAt = Date.now();
+        r.game.phase = 'drawing';
+      });
+    }, TIEBREAK_TIME_MS);
+    return () => clearTimeout(id);
+  }, [loading, error, phase, paused, roundIndex, myActorID, hostId, update]);
+
   // Guessing: if the liar doesn't submit within 30s, auto-resolve with
   // no answer (wrong). The liar owns the write; the host covers a
   // liar who has left. Gate kept in a ref so presence churn doesn't
@@ -621,11 +693,17 @@ function RoomInner({
     return (
       <div className="room__status room__status--error">
         <p>{t.room.attachFailed}</p>
-        <button className="room__backToLobby" onClick={onLeave}>
+        <button className="room__backToLobby" onClick={() => onLeave()}>
           {t.room.backToLobby}
         </button>
       </div>
     );
+  }
+  // Joining an existing room: until we confirm someone else is here, show
+  // a neutral "joining…" screen — never the waiting room — so a bad code
+  // bounces straight back to the lobby without flashing the room.
+  if (!confirmed) {
+    return <div className="room__status">{t.room.connecting(room)}</div>;
   }
 
   const uniquePresences = dedupeByUid(presences);
@@ -673,7 +751,7 @@ function RoomInner({
     return (
       <div className="room__status room__status--error">
         <p>{t.room.nameTaken(myName)}</p>
-        <button className="room__backToLobby" onClick={onLeave}>
+        <button className="room__backToLobby" onClick={() => onLeave()}>
           {t.room.backToLobby}
         </button>
       </div>
@@ -803,7 +881,7 @@ function RoomInner({
           >
             {LOCALE_LIST.map((l) => (
               <option key={l.code} value={l.code}>
-                {l.name}
+                🌐 {l.name}
               </option>
             ))}
           </select>
@@ -886,6 +964,10 @@ function RoomInner({
       </div>
 
       {howToOpen && <HowToModal onClose={() => setHowToOpen(false)} />}
+
+      {/* Transient chat / join-leave toasts for players without the panel
+          open (and shown even when it is). */}
+      <ChatToasts myActorID={myActorID} presences={displayPresences} />
     </div>
   );
 }
@@ -895,7 +977,13 @@ function MissingApiKeyHint() {
   return <div className="room__status">{t.room.missingApiKey}</div>;
 }
 
-export default function Room({ room, name, onLeave }: Props) {
+export default function Room({
+  room,
+  name,
+  mustExist = false,
+  onLeave,
+  onValidated = () => {},
+}: Props) {
   const myColor = useMemo(() => randomPlayerColor(), []);
   // Stable per-tab identity; survives reload and reconnect.
   const myUid = useMemo(() => getSessionUid(), []);
@@ -927,7 +1015,14 @@ export default function Room({ room, name, onLeave }: Props) {
           spectator: startSpectator,
         }}
       >
-        <RoomInner room={room} myUid={myUid} myName={name} onLeave={onLeave} />
+        <RoomInner
+          room={room}
+          myUid={myUid}
+          myName={name}
+          mustExist={mustExist}
+          onLeave={onLeave}
+          onValidated={onValidated}
+        />
       </DocumentProvider>
     </YorkieProvider>
   );

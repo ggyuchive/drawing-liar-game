@@ -1,3 +1,13 @@
+/* Self-hosted Pretendard (KO/EN). One variable woff2 carries every
+   weight (45–920); served from /public so there's no external CDN. */
+@font-face {
+  font-family: 'Pretendard Variable';
+  font-weight: 45 920;
+  font-style: normal;
+  font-display: swap;
+  src: url('/fonts/PretendardVariable.woff2') format('woff2-variations');
+}
+
 :root {
   --bg: #f5f5f7;
   --bg-elev: #ffffff;
@@ -8,7 +18,9 @@
   --accent-soft: rgba(91, 108, 255, 0.1);
   --danger: #ef4444;
 
-  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  font-family:
+    'Pretendard Variable', Pretendard, system-ui, -apple-system, 'Segoe UI',
+    Roboto, sans-serif;
   font-size: 16px;
   color: var(--text);
   background: var(--bg);

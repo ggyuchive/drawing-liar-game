@@ -24,6 +24,7 @@ export type ChatMessage = {
 export type Phase =
   | 'lobby'
   | 'drawing'
+  | 'tiebreak'
   | 'voting'
   | 'reveal'
   | 'guessing'
@@ -101,7 +102,7 @@ export type CanvasPresence = {
   spectator: boolean;
 };
 
-export const DEFAULT_BRUSH_BUDGET_PX = 1500;
+export const DEFAULT_BRUSH_BUDGET_PX = 1000;
 export const DEFAULT_TURN_TIME_MS = 10_000;
 export const DEFAULT_KEYWORD_DECK = 'general';
 // Wall-clock caps (measured locally per client) for the voting and
@@ -114,6 +115,9 @@ export const REVEAL_TIME_MS = 5_000;
 // How long the round-end scoreboard is shown before the next round
 // auto-starts (or the final ranking shows on the last round).
 export const ROUNDEND_TIME_MS = 5_000;
+// How long the tie-break popup is shown before drawing resumes for the
+// one extra cycle (when the vote was tied, or no one voted at all).
+export const TIEBREAK_TIME_MS = 5_000;
 
 const emptyRound = (): Round => ({
   index: 0,

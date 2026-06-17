@@ -169,7 +169,7 @@ const en: Locale = {
       close: 'Got it',
     },
     joinLobby: {
-      tagline: 'A liar drawing game on a shared canvas.',
+      title: 'Drawing Liar Game',
       yourName: 'Your name',
       namePlaceholder: 'e.g. doodler',
       createGame: 'Create a new game',
@@ -180,6 +180,9 @@ const en: Locale = {
       languageLabel: 'Language',
       activeCount: (rooms, users) =>
         `${rooms} room${rooms === 1 ? '' : 's'} · ${users} player${users === 1 ? '' : 's'} online`,
+      madeBy: 'Made by',
+      builtWith: 'Built on Yorkie',
+      roomNotFound: "That room doesn't exist. Check the code, or create a new game.",
     },
     inRoomLobby: {
       title: 'Waiting room',
@@ -246,6 +249,11 @@ const en: Locale = {
       votesIn: (n, m) => `${n} / ${m} votes in`,
       youPicked: (name) => ` — you picked ${name}`,
       voted: 'voted',
+    },
+    tiebreak: {
+      title: 'No decision!',
+      sub: 'No one was decisively accused. Everyone draws one more turn, then votes again.',
+      resumeIn: 'Resuming in',
     },
     reveal: {
       title: 'The votes are in',

@@ -1,9 +1,42 @@
 /* ---------- Lobby ---------- */
+/* Flex column so the card stays vertically centered (margin-block:auto)
+   while the footer settles at the bottom of the screen. */
 .lobby {
   min-height: 100vh;
-  display: grid;
-  place-items: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   padding: 24px;
+  gap: 24px;
+}
+
+/* Transient "room not found" toast at the top of the landing page. */
+.lobby__toast {
+  position: fixed;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 100;
+  max-width: calc(100vw - 32px);
+  padding: 12px 18px;
+  border-radius: 12px;
+  background: var(--danger);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  box-shadow: 0 10px 30px rgba(239, 68, 68, 0.35);
+  animation: lobby-toast-in 200ms ease-out;
+}
+
+@keyframes lobby-toast-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -8px);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
 }
 
 /* Top-right cluster of the landing page: live counts + GitHub link. */
@@ -70,6 +103,18 @@
 }
 .lobby__card .lobby__heading {
   margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* Favicon as the title mark, sized to the heading text. */
+.lobby__headingIcon {
+  width: 2.5em;
+  height: 2.5em;
+  border-radius: 10px;
+  object-fit: cover;
+  flex-shrink: 0;
 }
 
 /* Live count, a pill sitting to the left of the GitHub link. */
@@ -103,6 +148,8 @@
   width: 100%;
   max-width: 420px;
   box-shadow: 0 12px 32px rgba(0, 0, 0, 0.06);
+  /* Center in the leftover space; the footer keeps the bottom row. */
+  margin-block: auto;
 }
 
 .lobby__card h1 {
@@ -111,36 +158,53 @@
   letter-spacing: -0.4px;
 }
 
-.lobby__topRow {
+/* ---------- Lobby footer (developer credit) ---------- */
+.lobby__footer {
   display: flex;
-  justify-content: space-between;
-  align-items: flex-end;
-  gap: 12px;
-  margin-bottom: 8px;
-}
-
-.lobby__lang {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  font-size: 12px;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding-top: 4px;
+  font-size: 13px;
   color: var(--text-soft);
-  align-items: flex-end;
 }
 
-.lobby__lang select {
-  font: inherit;
-  padding: 6px 10px;
-  border-radius: 8px;
+/* Both footer credits are the same pill button (like the GitHub badge). */
+.lobby__footerDev,
+.lobby__footerTech {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 14px;
+  border-radius: 999px;
   border: 1px solid var(--border);
-  background: var(--bg);
-  color: var(--text);
+  background: var(--bg-elev);
+  color: var(--text-soft);
+  text-decoration: none;
+  transition:
+    color 0.15s,
+    border-color 0.15s,
+    transform 0.15s;
+}
+.lobby__footerDev:hover,
+.lobby__footerTech:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+  transform: translateY(-1px);
+}
+.lobby__footerYorkie {
+  width: 16px;
+  height: 16px;
+  object-fit: contain;
 }
 
-.lobby__tagline {
-  margin: 0 0 24px;
-  color: var(--text-soft);
-  font-size: 14px;
+.lobby__footerDev strong {
+  color: var(--text);
+  font-weight: 700;
+}
+.lobby__footerDev:hover strong {
+  color: var(--accent);
 }
 
 .lobby__label {
@@ -154,6 +218,8 @@
   display: block;
   width: 100%;
   margin-top: 6px;
+  font-size: 16px;
+  padding: 12px 14px;
 }
 
 .lobby__primary {
@@ -441,19 +507,33 @@
 .lobbyIn__configCell {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  font-size: 13px;
+  gap: 5px;
+  font-size: 15px;
   color: var(--text-soft);
 }
 
 .lobbyIn__configCell input,
 .lobbyIn__configCell select {
   font: inherit;
-  padding: 10px 12px;
+  font-size: 18px;
+  padding: 12px 14px;
   border-radius: 8px;
   border: 1px solid var(--border);
   background: var(--bg);
   color: var(--text);
+}
+
+/* Enlarge the number spinner (up/down) so it's easy to hit. */
+.lobbyIn__configCell input[type='number'] {
+  /* Reserve room so the taller spinner buttons aren't cramped. */
+  padding-right: 8px;
+}
+.lobbyIn__configCell input[type='number']::-webkit-inner-spin-button {
+  height: 28px;
+  width: 20px;
+  transform: scale(1.4);
+  transform-origin: center right;
+  cursor: pointer;
 }
 
 .lobbyIn__start {

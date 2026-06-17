@@ -15,7 +15,7 @@ export type LocaleUI = {
     close: string;
   };
   joinLobby: {
-    tagline: string;
+    title: string;
     yourName: string;
     namePlaceholder: string;
     createGame: string;
@@ -25,6 +25,9 @@ export type LocaleUI = {
     spectate: string;
     languageLabel: string;
     activeCount: (rooms: number, users: number) => string;
+    madeBy: string;
+    builtWith: string;
+    roomNotFound: string;
   };
   inRoomLobby: {
     title: string;
@@ -86,6 +89,12 @@ export type LocaleUI = {
     votesIn: (n: number, m: number) => string;
     youPicked: (name: string) => string;
     voted: string;
+  };
+  tiebreak: {
+    title: string;
+    sub: string;
+    // Label beside the countdown until drawing resumes.
+    resumeIn: string;
   };
   reveal: {
     title: string;

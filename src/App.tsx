@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import Lobby from './Lobby';
 import Room from './Room';
 import { normalizeRoomCode } from './util';
@@ -8,6 +8,9 @@ import './board.css';
 type RouteState = {
   room: string | null;
   name: string;
+  // True when we entered by JOINING/spectating (or via a shared link), so
+  // the room must already exist; false when we just CREATED a new room.
+  mustExist: boolean;
 };
 
 function readHash(): { room: string | null } {
@@ -47,30 +50,79 @@ function writeName(name: string) {
   }
 }
 
+// Rooms we've already validly entered this tab, so a reload of our own
+// room (even a solo one we just created) doesn't get re-checked and
+// bounced. Cleared when we leave.
+const ENTERED_KEY = 'drawing-liar-game.enteredRoom';
+function markEntered(room: string) {
+  try {
+    sessionStorage.setItem(ENTERED_KEY, room);
+  } catch {
+    // ignore
+  }
+}
+function wasEntered(room: string): boolean {
+  try {
+    return sessionStorage.getItem(ENTERED_KEY) === room;
+  } catch {
+    return false;
+  }
+}
+
 export default function App() {
-  const [route, setRoute] = useState<RouteState>(() => ({
-    room: readHash().room,
-    name: readName(),
-  }));
+  const [route, setRoute] = useState<RouteState>(() => {
+    const room = readHash().room;
+    return {
+      room,
+      name: readName(),
+      // A room arriving from the URL must already exist — UNLESS it's one
+      // we already entered in this tab (a reload of our own room).
+      mustExist: !!room && !wasEntered(room),
+    };
+  });
+  // Transient "that room doesn't exist" flag, shown on the lobby.
+  const [notFound, setNotFound] = useState(false);
 
   useEffect(() => {
     const onHashChange = () => {
-      setRoute((r) => ({ ...r, room: readHash().room }));
+      const room = readHash().room;
+      setRoute((r) => ({ ...r, room, mustExist: !!room && !wasEntered(room) }));
     };
     window.addEventListener('hashchange', onHashChange);
     return () => window.removeEventListener('hashchange', onHashChange);
   }, []);
 
-  const handleEnter = (name: string, room: string) => {
-    writeName(name);
-    writeHash(room);
-    setRoute({ room, name });
-  };
+  // From the lobby: `mustExist` is true for Join/Spectate, false for
+  // Create (which intentionally opens a brand-new room).
+  const handleEnter = useCallback(
+    (name: string, room: string, mustExist: boolean) => {
+      writeName(name);
+      writeHash(room);
+      setNotFound(false);
+      // A freshly created room is valid by definition — remember it so a
+      // reload while still alone doesn't bounce us.
+      if (!mustExist) markEntered(room);
+      setRoute({ room, name, mustExist });
+    },
+    [],
+  );
 
-  const handleLeave = () => {
+  // Called once the room is confirmed real (another player is present, or
+  // we created it), so reloads skip the existence check.
+  const handleValidated = useCallback((room: string) => {
+    markEntered(room);
+  }, []);
+
+  const handleLeave = useCallback((opts?: { notFound?: boolean }) => {
+    try {
+      sessionStorage.removeItem(ENTERED_KEY);
+    } catch {
+      // ignore
+    }
     writeHash(null);
-    setRoute((r) => ({ ...r, room: null }));
-  };
+    if (opts?.notFound) setNotFound(true);
+    setRoute((r) => ({ ...r, room: null, mustExist: false }));
+  }, []);
 
   if (!route.room || !route.name) {
     return (
@@ -78,9 +130,19 @@ export default function App() {
         initialName={route.name}
         initialRoom={route.room ?? ''}
         onEnter={handleEnter}
+        notFound={notFound}
+        onDismissError={() => setNotFound(false)}
       />
     );
   }
 
-  return <Room room={route.room} name={route.name} onLeave={handleLeave} />;
+  return (
+    <Room
+      room={route.room}
+      name={route.name}
+      mustExist={route.mustExist}
+      onLeave={handleLeave}
+      onValidated={handleValidated}
+    />
+  );
 }

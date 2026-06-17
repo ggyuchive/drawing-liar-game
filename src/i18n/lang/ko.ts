@@ -169,7 +169,7 @@ const ko: Locale = {
       close: '확인',
     },
     joinLobby: {
-      tagline: '공유 캔버스에서 즐기는 라이어 그림 게임.',
+      title: '그림 라이어게임',
       yourName: '닉네임',
       namePlaceholder: '예: 그림쟁이',
       createGame: '새 게임 만들기',
@@ -179,6 +179,9 @@ const ko: Locale = {
       spectate: '관전',
       languageLabel: '언어',
       activeCount: (rooms, users) => `방 ${rooms}개 · 접속자 ${users}명`,
+      madeBy: '만든 사람',
+      builtWith: 'Yorkie로 제작',
+      roomNotFound: '존재하지 않는 방이에요. 코드를 확인하거나 새 게임을 만들어 주세요.',
     },
     inRoomLobby: {
       title: '대기실',
@@ -242,6 +245,11 @@ const ko: Locale = {
       votesIn: (n, m) => `투표 ${n} / ${m}`,
       youPicked: (name) => ` — ${name} 님 선택함`,
       voted: '투표함',
+    },
+    tiebreak: {
+      title: '승부를 가리지 못했어요!',
+      sub: '라이어를 확실히 지목하지 못했어요. 모두 한 턴씩 더 그리고 다시 투표합니다.',
+      resumeIn: '다시 시작까지',
     },
     reveal: {
       title: '투표 결과',

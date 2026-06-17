@@ -6,10 +6,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
     <!-- Primary SEO -->
-    <title>그림 라이어 게임 (Drawing Liar Game)</title>
+    <title>그림 라이어게임 (Drawing Liar Game)</title>
     <meta
       name="description"
-      content="그림 라이어 게임: 친구들과 한 캔버스에 번갈아 그림을 그리고, 키워드를 모르는 라이어를 찾아내는 실시간 멀티플레이어 게임. 설치 없이 방 코드만으로 바로 시작하세요. A real-time multiplayer drawing liar game."
+      content="그림 라이어게임: 친구들과 한 캔버스에 번갈아 그림을 그리고, 키워드를 모르는 라이어를 찾아내는 실시간 멀티플레이어 게임. 설치 없이 방 코드만으로 바로 시작하세요. A real-time multiplayer drawing liar game."
     />
     <meta
       name="keywords"
@@ -22,10 +22,10 @@
 
     <!-- Open Graph (카카오톡/페이스북 공유 미리보기) -->
     <meta property="og:type" content="website" />
-    <meta property="og:site_name" content="그림 라이어 게임" />
+    <meta property="og:site_name" content="그림 라이어게임" />
     <meta
       property="og:title"
-      content="그림 라이어 게임 (Drawing Liar Game)"
+      content="그림 라이어게임 (Drawing Liar Game)"
     />
     <meta
       property="og:description"
@@ -41,7 +41,7 @@
 
     <!-- Twitter -->
     <meta name="twitter:card" content="summary" />
-    <meta name="twitter:title" content="그림 라이어 게임" />
+    <meta name="twitter:title" content="그림 라이어게임 (Drawing Liar Game)" />
     <meta
       name="twitter:description"
       content="함께 그리며 라이어를 찾는 실시간 멀티플레이어 게임. 방 코드로 바로 시작."
@@ -62,8 +62,8 @@
       {
         "@context": "https://schema.org",
         "@type": "WebApplication",
-        "name": "그림 라이어 게임",
-        "alternateName": "Drawing Liar Game",
+        "name": "그림 라이어게임",
+        "alternateName": ["그림 라이어 게임", "Drawing Liar Game"],
         "url": "https://drawing-liar-game.vercel.app/",
         "applicationCategory": "GameApplication",
         "operatingSystem": "Web",
@@ -75,6 +75,17 @@
   </head>
   <body>
     <div id="root"></div>
+    <!-- Crawlable, static content for search engines (the app itself is
+         JS-rendered). Holds the exact "그림 라이어게임" string so the page
+         can match that query; hidden from users who have JS (everyone). -->
+    <noscript>
+      <h1>그림 라이어게임 (Drawing Liar Game)</h1>
+      <p>
+        그림 라이어게임은 친구들과 한 캔버스에 번갈아 그림을 그리고, 키워드를
+        모르는 라이어를 찾아내는 실시간 멀티플레이어 게임입니다. 설치 없이 방
+        코드만으로 바로 시작하세요.
+      </p>
+    </noscript>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

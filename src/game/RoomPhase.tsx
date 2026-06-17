@@ -9,6 +9,7 @@ import Finished from './Finished';
 import Guessing from './Guessing';
 import Reveal from './Reveal';
 import RoundEnd from './RoundEnd';
+import TieBreak from './TieBreak';
 import RoundHud, { type HudRole } from './RoundHud';
 import Voting from './Voting';
 import { startRound } from './secrets';
@@ -303,6 +304,16 @@ export default function RoomPhase({
           presences={displayPresences}
           onPlayAgain={onPlayAgain}
         />
+      );
+    }
+    case 'tiebreak': {
+      // Popup over the board; a host-owned timer auto-resumes drawing
+      // (see the tie-break effect). The board stays visible behind it.
+      return (
+        <div className="phase phase--judge">
+          <BoardView strokes={root.strokes} highlightId={highlightId} />
+          <TieBreak round={root.game.round} />
+        </div>
       );
     }
     case 'reveal': {
