@@ -15,15 +15,20 @@ export function normalizeRoomCode(input: string): string {
 // Eight visually distinct colors (no near-duplicates), each legible
 // as a stroke on the white canvas. Players are assigned from this
 // fixed set at game start.
+// Ordered most "major" (distinct, recognizable) first → most minor last.
+// A game with N players uses exactly the first N (3 → red/green/blue),
+// so the palette grows predictably and the 8th is the least prominent.
+// Bright, well-separated hues (no muddy teal/brown) so colors stay easy
+// to tell apart on the white canvas.
 export const PLAYER_COLORS: ReadonlyArray<string> = [
-  '#e6194b', // red
-  '#3cb44b', // green
-  '#4363d8', // blue
-  '#f58231', // orange
-  '#911eb4', // purple
-  '#008080', // teal
-  '#f032e6', // magenta
-  '#9a6324', // brown
+  '#ef4444', // red
+  '#22c55e', // green
+  '#3b82f6', // blue
+  '#f97316', // orange
+  '#a855f7', // purple
+  '#2dd4bf', // mint
+  '#f472b6', // pink
+  '#eab308', // amber
 ];
 
 export function randomPlayerColor(): string {
@@ -32,6 +37,13 @@ export function randomPlayerColor(): string {
 
 export function generateId(): string {
   return Math.random().toString(36).slice(2, 10);
+}
+
+// Wraps Date.now() so it can be read once per mount (e.g. in a
+// useMemo) without tripping the React Compiler's "impure function
+// during render" lint — same trick as randomPlayerColor/generateId.
+export function nowMs(): number {
+  return Date.now();
 }
 
 // A stable per-tab identity. Unlike the Yorkie actorID/clientID

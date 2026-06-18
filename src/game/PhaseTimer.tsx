@@ -24,7 +24,7 @@ export default function PhaseTimer({ durationMs, resetKey, label }: Props) {
   const level = secs <= 3 ? 'danger' : secs <= 5 ? 'warning' : 'ok';
   return (
     <div className={`timer timer--${level}`} aria-label={`${label} ${secs}s`}>
-      <span className="timer__label">{label}</span>
+      {label && <span className="timer__label">{label}</span>}
       <span className="timer__value">⏱ 0:{String(secs).padStart(2, '0')}</span>
     </div>
   );

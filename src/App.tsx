@@ -80,8 +80,8 @@ export default function App() {
       mustExist: !!room && !wasEntered(room),
     };
   });
-  // Transient "that room doesn't exist" flag, shown on the lobby.
-  const [notFound, setNotFound] = useState(false);
+  // Transient join error, shown on the lobby ("not found" / "room full").
+  const [joinError, setJoinError] = useState<'notFound' | 'full' | null>(null);
 
   useEffect(() => {
     const onHashChange = () => {
@@ -98,7 +98,7 @@ export default function App() {
     (name: string, room: string, mustExist: boolean) => {
       writeName(name);
       writeHash(room);
-      setNotFound(false);
+      setJoinError(null);
       // A freshly created room is valid by definition — remember it so a
       // reload while still alone doesn't bounce us.
       if (!mustExist) markEntered(room);
@@ -113,16 +113,20 @@ export default function App() {
     markEntered(room);
   }, []);
 
-  const handleLeave = useCallback((opts?: { notFound?: boolean }) => {
-    try {
-      sessionStorage.removeItem(ENTERED_KEY);
-    } catch {
-      // ignore
-    }
-    writeHash(null);
-    if (opts?.notFound) setNotFound(true);
-    setRoute((r) => ({ ...r, room: null, mustExist: false }));
-  }, []);
+  const handleLeave = useCallback(
+    (opts?: { notFound?: boolean; full?: boolean }) => {
+      try {
+        sessionStorage.removeItem(ENTERED_KEY);
+      } catch {
+        // ignore
+      }
+      writeHash(null);
+      if (opts?.full) setJoinError('full');
+      else if (opts?.notFound) setJoinError('notFound');
+      setRoute((r) => ({ ...r, room: null, mustExist: false }));
+    },
+    [],
+  );
 
   if (!route.room || !route.name) {
     return (
@@ -130,8 +134,8 @@ export default function App() {
         initialName={route.name}
         initialRoom={route.room ?? ''}
         onEnter={handleEnter}
-        notFound={notFound}
-        onDismissError={() => setNotFound(false)}
+        joinError={joinError}
+        onDismissError={() => setJoinError(null)}
       />
     );
   }

@@ -14,8 +14,8 @@ type Props = {
   initialName: string;
   initialRoom: string;
   onEnter: (name: string, room: string, mustExist: boolean) => void;
-  // Set when a join attempt found no such room; shown as a transient toast.
-  notFound: boolean;
+  // Set when a join attempt failed; shown as a transient toast.
+  joinError: 'notFound' | 'full' | null;
   onDismissError: () => void;
 };
 
@@ -23,7 +23,7 @@ export default function Lobby({
   initialName,
   initialRoom,
   onEnter,
-  notFound,
+  joinError,
   onDismissError,
 }: Props) {
   const ui = useT();
@@ -34,12 +34,12 @@ export default function Lobby({
   const [howToOpen, setHowToOpen] = useState(false);
   const trimmedName = name.trim();
 
-  // Auto-hide the "room not found" toast a few seconds after it appears.
+  // Auto-hide the join-error toast a few seconds after it appears.
   useEffect(() => {
-    if (!notFound) return;
+    if (!joinError) return;
     const id = setTimeout(onDismissError, 3500);
     return () => clearTimeout(id);
-  }, [notFound, onDismissError]);
+  }, [joinError, onDismissError]);
 
   // Live active room + user counts (from the backend in prod; demo
   // numbers under plain `pnpm dev` so the badge is verifiable).
@@ -76,9 +76,9 @@ export default function Lobby({
 
   return (
     <div className="lobby">
-      {notFound && (
+      {joinError && (
         <div className="lobby__toast" role="alert">
-          {t.roomNotFound}
+          {joinError === 'full' ? t.roomFull : t.roomNotFound}
         </div>
       )}
       {/* Top bar (right): live counts, how-to, language, GitHub. */}

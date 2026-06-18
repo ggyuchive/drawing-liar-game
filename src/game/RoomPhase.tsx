@@ -174,8 +174,14 @@ export default function RoomPhase({
       };
       while (r.strokes.length > 0) r.strokes.delete?.(0);
       r.game.scores = Object.fromEntries(order.map((id) => [id, 0]));
-      // Fresh, distinct color per player for the whole game.
-      r.game.colors = assignColors(order, shuffle(PLAYER_COLORS));
+      // Use exactly N colors for N players, always the N most "major"
+      // ones from the front of the palette (3 players → red/green/blue),
+      // shuffled so which player gets which is random but the set is
+      // deterministic.
+      r.game.colors = assignColors(
+        order,
+        shuffle(PLAYER_COLORS.slice(0, order.length)),
+      );
       r.game.phase = 'drawing';
     });
   };
@@ -294,7 +300,8 @@ export default function RoomPhase({
           }
           r.game = fresh as unknown as JSONObject<Game>;
           while (r.strokes.length > 0) r.strokes.delete?.(0);
-          while (r.chat.length > 0) r.chat.delete?.(0);
+          // Keep the chat history across games in the same room — only
+          // the canvas + game state reset on "play again".
         });
       };
       return (
@@ -312,7 +319,7 @@ export default function RoomPhase({
       return (
         <div className="phase phase--judge">
           <BoardView strokes={root.strokes} highlightId={highlightId} />
-          <TieBreak round={root.game.round} />
+          <TieBreak round={root.game.round} presences={displayPresences} />
         </div>
       );
     }

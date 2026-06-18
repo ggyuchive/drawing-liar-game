@@ -1,6 +1,7 @@
 import { useT } from '../i18n';
 import { REVEAL_TIME_MS, type CanvasPresence, type Round } from '../types';
 import PhaseTimer from './PhaseTimer';
+import VoteBars from './VoteBars';
 import { tallyVotes } from './state';
 
 type Props = {
@@ -21,40 +22,12 @@ export default function Reveal({ round, presences }: Props) {
   // A single clear accusation only when exactly one player leads.
   const singleAccused = topIds.length === 1 ? topIds[0] : '';
   const wasLiarCaught = !!singleAccused && singleAccused === round.liarId;
-  const maxCount = Math.max(1, maxVotes);
-  // Show the bars most-voted first, top to bottom.
-  const barOrder = [...round.playerOrder].sort(
-    (a, b) => (counts[b] ?? 0) - (counts[a] ?? 0),
-  );
 
   return (
     <div className="reveal">
       <h2 className="reveal__title">{t.title}</h2>
 
-      <ul className="reveal__bars">
-        {barOrder.map((id) => {
-          const c = counts[id] ?? 0;
-          const pct = (c / maxCount) * 100;
-          // Highlight whoever leads (both/all of them when it's a tie).
-          const isAccused = c === maxVotes && maxVotes > 0;
-          return (
-            <li key={id} className="reveal__bar">
-              <span className="reveal__barName">{nameFor(id)}</span>
-              <div className="reveal__barTrack">
-                <div
-                  className={
-                    isAccused
-                      ? 'reveal__barFill reveal__barFill--accused'
-                      : 'reveal__barFill'
-                  }
-                  style={{ width: `${pct}%` }}
-                />
-              </div>
-              <span className="reveal__barCount">{c}</span>
-            </li>
-          );
-        })}
-      </ul>
+      <VoteBars round={round} presences={presences} />
 
       <p className="reveal__verdict">
         {singleAccused ? (

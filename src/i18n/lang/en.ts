@@ -143,7 +143,7 @@ const en: Locale = {
       copyCode: 'Copy code',
       copied: 'Copied!',
       leave: 'Leave',
-      time: 'Time',
+      time: 'Time left',
     },
     howTo: {
       openLabel: 'How to play',
@@ -183,6 +183,7 @@ const en: Locale = {
       madeBy: 'Made by',
       builtWith: 'Built on Yorkie',
       roomNotFound: "That room doesn't exist. Check the code, or create a new game.",
+      roomFull: 'That room is full (8 players max). Try another, or spectate.',
     },
     inRoomLobby: {
       title: 'Waiting room',
@@ -221,7 +222,7 @@ const en: Locale = {
       drawing: (name) => `${name} is drawing…`,
       waiting: 'Waiting…',
       brushLabel: 'Brush',
-      timerLabel: 'Turn',
+      timerLabel: 'Time left',
     },
     chat: {
       title: 'Chat',

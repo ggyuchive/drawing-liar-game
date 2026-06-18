@@ -10,7 +10,7 @@ type DocRoot = {
 };
 
 const CANVAS_WIDTH = 900;
-const CANVAS_HEIGHT = 600;
+const CANVAS_HEIGHT = 900;
 const POINT_THRESHOLD_SQ = 4;
 
 type Props = {

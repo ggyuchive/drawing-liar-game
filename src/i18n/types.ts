@@ -28,6 +28,7 @@ export type LocaleUI = {
     madeBy: string;
     builtWith: string;
     roomNotFound: string;
+    roomFull: string;
   };
   inRoomLobby: {
     title: string;

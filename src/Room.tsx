@@ -36,10 +36,12 @@ import {
   initialGame,
 } from './types';
 import {
+  PLAYER_COLORS,
   dedupeByUid,
   generateId,
   getSessionSpectator,
   getSessionUid,
+  nowMs,
   randomPlayerColor,
 } from './util';
 
@@ -49,7 +51,7 @@ type Props = {
   // True when joining/spectating: the room must already have another live
   // player, else we bounce back to the lobby instead of opening a new one.
   mustExist?: boolean;
-  onLeave: (opts?: { notFound?: boolean }) => void;
+  onLeave: (opts?: { notFound?: boolean; full?: boolean }) => void;
   // Called once the room is confirmed real, so reloads skip the check.
   onValidated?: (room: string) => void;
 };
@@ -79,7 +81,7 @@ function RoomInner({
   myUid: string;
   myName: string;
   mustExist: boolean;
-  onLeave: (opts?: { notFound?: boolean }) => void;
+  onLeave: (opts?: { notFound?: boolean; full?: boolean }) => void;
   onValidated: (room: string) => void;
 }) {
   const { root, presences, update, loading, error, connection } = useDocument<
@@ -154,6 +156,31 @@ function RoomInner({
     return () => clearTimeout(id);
   }, [mustExist, loading, error, onLeave]);
 
+  // 8-player cap. Rank present players by join time (earliest first); if
+  // I'm a player past the 8th seat, I'm the overflow and bounce MYSELF
+  // with a "room full" notice — so a 9th joiner never displaces one of
+  // the existing 8. Spectators don't count and are never capped.
+  const overCapacity =
+    ready &&
+    !!myActorID &&
+    (() => {
+      const me = presences.find((p) => p.presence.uid === myActorID)?.presence;
+      if (!me || me.spectator) return false;
+      const players = [
+        ...new Map(
+          presences
+            .filter((p) => !p.presence.spectator)
+            .map((p) => [p.presence.uid, p.presence]),
+        ).values(),
+      ].sort(
+        (a, b) => (a.joinedAt ?? 0) - (b.joinedAt ?? 0) || a.uid.localeCompare(b.uid),
+      );
+      return players.findIndex((p) => p.uid === myActorID) >= 8;
+    })();
+  useEffect(() => {
+    if (overCapacity) onLeave({ full: true });
+  }, [overCapacity, onLeave]);
+
   // Host election + promotion. The host is the lexicographically
   // smallest present uid. This both seeds the first host and re-elects
   // when the current host's tab is gone — every client computes the
@@ -207,6 +234,34 @@ function RoomInner({
       presence.set({ color: myAssignedColor });
     });
   }, [myAssignedColor, myPresenceColor, update]);
+
+  // In the waiting room, hand out colors in palette order (1→2→3…) by a
+  // stable sort of the present players, so everyone agrees and the room
+  // looks ordered rather than a random clash. The game-start assignment
+  // then reshuffles within the same top-N set. (Game colors win once set,
+  // so this only matters during the lobby phase.)
+  const myLobbyColor =
+    ready && myActorID && root.game.phase === 'lobby'
+      ? (() => {
+          const ids = [
+            ...new Set(
+              presences
+                .filter((p) => !p.presence.spectator)
+                .map((p) => p.presence.uid),
+            ),
+          ].sort();
+          const idx = ids.indexOf(myActorID);
+          return idx >= 0
+            ? PLAYER_COLORS[idx % PLAYER_COLORS.length]
+            : undefined;
+        })()
+      : undefined;
+  useEffect(() => {
+    if (!myLobbyColor || myPresenceColor === myLobbyColor) return;
+    update((_r, presence) => {
+      presence.set({ color: myLobbyColor });
+    });
+  }, [myLobbyColor, myPresenceColor, update]);
 
   // Keep our presence alive for peers. Yorkie holds presence via a
   // heartbeat that stalls when a tab is backgrounded/throttled — the
@@ -541,7 +596,8 @@ function RoomInner({
         if (r.game.phase !== 'voting') return;
         const order = r.game.round.playerOrder;
         r.game.round.tieBreakUsed = true;
-        r.game.round.votes = {};
+        // Keep `votes` for now so the tie-break popup can show the
+        // inconclusive tally; they're cleared when drawing resumes.
         // Extend this round's turn budget by one per player and resume
         // from the next drawer, keeping strokesDone so the counter
         // continues (e.g. 6/6 → 7/9) instead of restarting at 1.
@@ -634,6 +690,8 @@ function RoomInner({
     const id = setTimeout(() => {
       update((r) => {
         if (r.game.phase !== 'tiebreak') return;
+        // Clear the (shown-during-popup) votes now that drawing resumes.
+        r.game.round.votes = {};
         r.game.round.turnStartedAt = Date.now();
         r.game.phase = 'drawing';
       });
@@ -701,8 +759,9 @@ function RoomInner({
   }
   // Joining an existing room: until we confirm someone else is here, show
   // a neutral "joining…" screen — never the waiting room — so a bad code
-  // bounces straight back to the lobby without flashing the room.
-  if (!confirmed) {
+  // bounces straight back to the lobby without flashing the room. Same
+  // for an over-capacity joiner that's about to bounce as "room full".
+  if (!confirmed || overCapacity) {
     return <div className="room__status">{t.room.connecting(room)}</div>;
   }
 
@@ -989,6 +1048,8 @@ export default function Room({
   const myUid = useMemo(() => getSessionUid(), []);
   // Chosen on the join screen (persisted per tab so a reload keeps it).
   const startSpectator = useMemo(() => getSessionSpectator(), []);
+  // When this tab joined, for the 8-player cap ordering (computed once).
+  const joinedAt = useMemo(() => nowMs(), []);
 
   if (!API_KEY) {
     return <MissingApiKeyHint />;
@@ -1013,6 +1074,7 @@ export default function Room({
           typing: false,
           lastSeen: 0,
           spectator: startSpectator,
+          joinedAt,
         }}
       >
         <RoomInner

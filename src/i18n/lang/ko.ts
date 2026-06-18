@@ -143,7 +143,7 @@ const ko: Locale = {
       copyCode: '코드 복사',
       copied: '복사됨!',
       leave: '나가기',
-      time: '시간',
+      time: '남은 시간',
     },
     howTo: {
       openLabel: '게임 방법',
@@ -182,6 +182,7 @@ const ko: Locale = {
       madeBy: '만든 사람',
       builtWith: 'Yorkie로 제작',
       roomNotFound: '존재하지 않는 방이에요. 코드를 확인하거나 새 게임을 만들어 주세요.',
+      roomFull: '방이 꽉 찼어요 (최대 8명). 다른 방을 이용하거나 관전해 주세요.',
     },
     inRoomLobby: {
       title: '대기실',
@@ -217,7 +218,7 @@ const ko: Locale = {
       drawing: (name) => `${name} 님이 그리는 중…`,
       waiting: '대기 중…',
       brushLabel: '잉크',
-      timerLabel: '시간',
+      timerLabel: '남은 시간',
     },
     chat: {
       title: '채팅',

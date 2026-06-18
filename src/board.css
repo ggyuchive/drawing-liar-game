@@ -105,13 +105,13 @@
   border: 1px solid var(--border);
   border-radius: 12px;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.06);
-  /* Fit the 3:2 surface inside the stage with zero ratio risk: pin only
-     the HEIGHT (to the smaller of the stage's height or the height that
-     the stage's width allows), and let width follow from aspect-ratio.
-     One explicit axis + aspect-ratio = the ratio can never be violated. */
-  height: min(100cqh, calc(100cqw * 2 / 3));
+  /* Fit the 1:1 surface inside the stage with zero ratio risk: pin only
+     the HEIGHT (to the smaller of the stage's height or its width), and
+     let width follow from aspect-ratio. One explicit axis + aspect-ratio
+     = the ratio can never be violated. */
+  height: min(100cqh, 100cqw);
   width: auto;
-  aspect-ratio: 3 / 2;
+  aspect-ratio: 1 / 1;
   touch-action: none;
   cursor: crosshair;
 }
@@ -413,6 +413,11 @@
   max-width: 32ch;
 }
 
+/* The inconclusive vote tally inside the popup. */
+.tiebreak__votes {
+  width: min(320px, 70vw);
+}
+
 .room__chatToggle,
 .room__chatDock {
   font-size: 13px;
@@ -506,7 +511,7 @@
   width: 100%;
   max-width: 560px;
   height: auto;
-  aspect-ratio: 3 / 2;
+  aspect-ratio: 1 / 1;
 }
 
 .phase__panel {
@@ -738,28 +743,11 @@
     max-height: 30vh;
   }
 
-  /* Top bar: never wrap to a second line — shrink everything instead. */
+  /* Top bar: don't cram it to fit — keep controls full-size and let the
+     row scroll sideways (anchored left) when the window is too narrow. */
   .room__header {
-    flex-wrap: nowrap;
-    gap: 6px;
-    padding: 8px 10px;
-    overflow-x: auto;
-  }
-  .room__label {
-    font-size: 12px;
-  }
-  .room__title {
-    gap: 6px;
-  }
-  .room__header button,
-  .room__lang {
-    font-size: 12px;
-    padding: 4px 8px;
-  }
-  .room__help {
-    width: 26px;
-    height: 26px;
-    padding: 0;
+    gap: 8px;
+    padding: 10px 12px;
   }
 
   /* Keep the brush meter + timer on one row to save vertical space. */

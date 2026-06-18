@@ -377,21 +377,27 @@
   text-align: center;
 }
 
+/* Single row that never wraps or shrinks to fit: when the window is too
+   narrow it scrolls sideways, anchored to the left (room code first).
+   `margin-left:auto` on the right cluster pushes it to the far edge when
+   there IS room, and collapses to 0 (left-packed) when it overflows. */
 .room__header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 12px;
   padding: 12px 20px;
   background: var(--bg-elev);
   border-bottom: 1px solid var(--border);
+  overflow-x: auto;
 }
 
 .room__headerRight {
   display: flex;
   align-items: center;
   gap: 8px;
+  flex-shrink: 0;
+  margin-left: auto;
 }
 
 .room__help {
@@ -407,6 +413,7 @@
   display: flex;
   align-items: center;
   gap: 8px;
+  flex-shrink: 0;
 }
 
 .room__label {

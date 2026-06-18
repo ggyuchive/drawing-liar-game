@@ -3,7 +3,7 @@ import type { JSONArray, JSONObject } from '@yorkie-js/react';
 import type { Stroke } from '../types';
 
 const CANVAS_WIDTH = 900;
-const CANVAS_HEIGHT = 600;
+const CANVAS_HEIGHT = 900;
 
 type Props = {
   strokes: JSONArray<JSONObject<Stroke>>;

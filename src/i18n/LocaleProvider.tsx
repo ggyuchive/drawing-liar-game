@@ -8,14 +8,12 @@ import {
   type LocaleCtx,
 } from './core';
 
-// Resolution order: an explicit saved choice wins; otherwise auto-detect
-// from the browser language (so English speakers land on English); if
-// that isn't a language we ship, fall back to the Korean default.
+// Always start in Korean, regardless of the browser/system language — an
+// explicit saved choice (from the 🌐 picker) is the only thing that
+// overrides it, so English speakers switch once and it sticks.
 function detectInitial(): string {
   const stored = localStorage.getItem(STORAGE_KEY);
   if (stored && LOCALES[stored]) return stored;
-  const browser = navigator.language?.split('-')[0]?.toLowerCase();
-  if (browser && LOCALES[browser]) return browser;
   return DEFAULT_CODE;
 }
 

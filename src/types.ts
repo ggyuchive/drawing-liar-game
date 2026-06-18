@@ -100,6 +100,10 @@ export type CanvasPresence = {
   // Opted to watch only — excluded from the player count, the side
   // profiles, and play. Toggled in the waiting room.
   spectator: boolean;
+  // Epoch when this tab joined. Used only to decide who's "first" for the
+  // 8-player cap, so a 9th joiner bounces itself instead of displacing an
+  // existing player. Optional for older presences (treated as earliest).
+  joinedAt?: number;
 };
 
 export const DEFAULT_BRUSH_BUDGET_PX = 1000;
