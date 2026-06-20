@@ -17,6 +17,11 @@ function decksFor(code: string) {
   return (LOCALES[code] ?? LOCALES[FALLBACK_CODE])?.keywords ?? {};
 }
 
+// A deck's display name in the given language (e.g. 'animals' → '동물').
+export function deckName(code: string, deck: string): string {
+  return decksFor(code)[deck]?.name ?? '';
+}
+
 export function deckListFor(
   code: string,
 ): ReadonlyArray<{ key: string; name: string }> {
@@ -42,9 +47,7 @@ export function pickKeyword(code: string, deck?: string): string {
   return ks[Math.floor(Math.random() * ks.length)];
 }
 
-// Decks are parallel across languages (same index = same concept), so
-// a round stores the deck + index and each client resolves the word in
-// its own language. pickKeywordIndex chooses a random valid index.
+// Random valid index into a deck (decks are parallel across languages).
 export function pickKeywordIndex(code: string, deck?: string): number {
   const ks = keywordsFor(code, deck);
   if (ks.length === 0) return 0;
@@ -57,22 +60,21 @@ export function keywordAt(code: string, deck: string, index: number): string {
   return ks[index % ks.length] ?? '';
 }
 
-// Number of words in a deck. The host sends this to the keyword-secrecy
-// server so it can pick a random valid index without holding the words.
-// Decks are parallel across languages, so any locale gives the same size.
+// Deck size; the host sends this so the server can pick an index without
+// holding the words. Any locale gives the same size (parallel decks).
 export function deckSize(code: string, deck?: string): number {
   return keywordsFor(code, deck).length;
 }
 
-// Every deck with its size. The host sends this whole list to the
-// secrecy server, which picks a deck + index across ALL categories
-// (players don't choose a category), keeping both secret from the liar.
+// Every deck + size, sent whole to the server, which picks deck+index
+// across all categories (keeping both secret from the liar).
 export function deckSizes(
   code: string,
-): ReadonlyArray<{ deck: string; size: number }> {
+): ReadonlyArray<{ deck: string; size: number; krOnly: boolean }> {
   const decks = (LOCALES[code] ?? LOCALES[FALLBACK_CODE])?.keywords ?? {};
   return Object.entries(decks).map(([deck, d]) => ({
     deck,
     size: d.words.length,
+    krOnly: d.krOnly === true,
   }));
 }

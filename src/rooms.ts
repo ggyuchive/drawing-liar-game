@@ -14,7 +14,9 @@ export async function pingRoom(room: string, uid: string): Promise<void> {
   }
 }
 
-export async function fetchActiveCounts(): Promise<ActiveCounts | null> {
+// 'unknown' = no backend (e.g. localhost) or a failed request; the UI
+// shows zeros rather than fabricating numbers.
+export async function fetchActiveCounts(): Promise<ActiveCounts | 'unknown'> {
   try {
     const res = await fetch('/api/rooms/active');
     if (!res.ok) throw new Error(`active ${res.status}`);
@@ -24,9 +26,6 @@ export async function fetchActiveCounts(): Promise<ActiveCounts | null> {
     }
     throw new Error('bad shape');
   } catch {
-    // No backend (plain `pnpm dev`): show demo numbers so the badge can
-    // be verified visually. Real counts come from the server in prod.
-    if (import.meta.env.DEV) return { rooms: 3, users: 8 };
-    return null;
+    return 'unknown';
   }
 }

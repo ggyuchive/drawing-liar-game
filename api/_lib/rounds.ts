@@ -1,28 +1,29 @@
 import { Redis } from '@upstash/redis';
 
-// The server's view of a round. The KEYWORD ITSELF never lives here —
-// only the deck name (public) and the chosen INDEX into that deck (the
-// secret). Clients localize the word from deck+index via the parallel
-// i18n decks, so the server stays language-agnostic and never holds
-// keyword strings. `liarId` is the other secret withheld from the doc.
+// The server's view of a round. The keyword text never lives here — only
+// the deck name (public) and the chosen index (secret); clients localize
+// from deck+index via the parallel i18n decks. `liarId` is also withheld
+// from the doc.
 export type RoundSecret = {
   room: string;
   deck: string;
   keywordIndex: number;
   liarId: string;
   playerUids: string[];
+  // Fool mode: the liar gets a different keyword in the same deck.
+  // `mode` defaults to 'classic'; `liarKeywordIndex` is -1 unless 'fool'.
+  mode?: 'classic' | 'fool';
+  liarKeywordIndex?: number;
 };
 
 // --- pure logic (unit-tested, no I/O) ---
 
-// A category and its size, as the host reports it.
 export type DeckRef = { deck: string; size: number };
 
-// Pick the liar, the keyword's deck, and its index. All are server-side
-// and random so none is derivable by any client (including the host,
-// who may be the liar) — and the deck (category) is itself a hint, so
-// it's chosen here across ALL categories, never picked by a player. The
-// deck is weighted by size so every individual keyword is equally likely.
+// Pick liar + deck + index, all server-side and random so no client
+// (including the host, who may be the liar) can derive them. The deck is
+// chosen here across all categories (it's itself a hint), weighted by
+// size so every keyword is equally likely.
 export function assignRound(
   playerUids: ReadonlyArray<string>,
   decks: ReadonlyArray<DeckRef>,
@@ -48,16 +49,39 @@ export function assignRound(
   return { liarId, deck: last.deck, keywordIndex: last.size - 1 };
 }
 
+// Pick a deck index different from `exclude`, uniformly among the rest.
+// Returns `exclude` unchanged when the deck has fewer than two words.
+export function pickDifferentIndex(
+  size: number,
+  exclude: number,
+  rand: () => number = Math.random,
+): number {
+  const n = Math.floor(size);
+  if (n <= 1) return exclude;
+  let i = Math.floor(rand() * (n - 1)); // 0 .. n-2
+  if (i >= exclude) i += 1; // skip the excluded slot
+  return i;
+}
+
 export type RoleView =
-  | { isLiar: true }
+  | { isLiar: true; keywordDeck: string }
   | { isLiar: false; keywordDeck: string; keywordIndex: number };
 
-// The per-client answer. A liar learns only that they're the liar; a
-// non-liar player learns the keyword (deck+index). An unknown uid (a
-// spectator who isn't in the round) gets neither. It NEVER reveals
-// another player's role — the caller's uid is the only input.
+// The per-client answer, keyed on the caller's own uid only (it never
+// reveals another player's role). Classic: the liar gets the category but
+// not the keyword. Fool: the liar is told isLiar:false with the different
+// keyword. Non-liars get the real keyword; unknown uids get neither.
 export function roleView(secret: RoundSecret, uid: string): RoleView {
-  if (uid === secret.liarId) return { isLiar: true };
+  if (uid === secret.liarId) {
+    if (secret.mode === 'fool') {
+      return {
+        isLiar: false,
+        keywordDeck: secret.deck,
+        keywordIndex: secret.liarKeywordIndex ?? secret.keywordIndex,
+      };
+    }
+    return { isLiar: true, keywordDeck: secret.deck };
+  }
   if (secret.playerUids.includes(uid)) {
     return {
       isLiar: false,
@@ -68,10 +92,8 @@ export function roleView(secret: RoundSecret, uid: string): RoleView {
   return { isLiar: false, keywordDeck: '', keywordIndex: -1 };
 }
 
-// Opaque handle stored in the public document. It need not be
-// unguessable: /me requires a token bound to the caller's uid and only
-// ever returns that caller's own role, so knowing a roundId reveals
-// nothing.
+// Opaque handle in the public doc. Need not be unguessable: /me requires
+// a uid-bound token and only returns the caller's own role.
 export function generateRoundId(): string {
   const part = () => Math.random().toString(36).slice(2);
   return `r_${part()}${part()}`;
@@ -85,14 +107,9 @@ const key = (roundId: string) => `dlg:round:${roundId}`;
 let redis: Redis | null = null;
 const mem = new Map<string, { value: RoundSecret; exp: number }>();
 
-// Use Upstash when its env vars are present (production / `vercel dev`
-// with the integration linked); otherwise fall back to process memory.
-// The in-memory map is per-instance, so it's only viable for a single
-// dev instance — production must have Upstash configured.
-//
-// Accept both naming schemes: Vercel's Upstash integration injects
-// `KV_REST_API_URL` / `KV_REST_API_TOKEN`, while a standalone Upstash
-// setup uses `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN`.
+// Upstash when its env vars are present, else process memory (per-
+// instance, dev only — prod must have Upstash). Accept both Vercel's
+// KV_REST_API_* and standalone UPSTASH_REDIS_REST_* naming.
 function store(): Redis | null {
   const url =
     process.env.KV_REST_API_URL ?? process.env.UPSTASH_REDIS_REST_URL;

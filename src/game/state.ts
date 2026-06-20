@@ -10,8 +10,7 @@ export function shuffle<T>(xs: ReadonlyArray<T>): Array<T> {
 export function tallyVotes(votes: Record<string, string>): {
   accusedId: string;
   counts: Record<string, number>;
-  // True when the top vote count is shared by 2+ players (no single
-  // clear accusation). Deterministic, so every client agrees.
+  // Top count shared by 2+ players — no single clear accusation.
   tied: boolean;
 } {
   const counts: Record<string, number> = {};
@@ -35,9 +34,7 @@ export type ScoreOutcome = {
   guessed: boolean;
 };
 
-// The finalised 2×2 table from docs/design/rules-v1.md
-// § "Scoring — finalised 2×2". Two axes (caught × guessed), four
-// cells, returned as [liarDelta, nonLiarDelta].
+// 2×2 scoring table (caught × guessed) → [liarDelta, nonLiarDelta].
 function deltas(outcome: ScoreOutcome): [number, number] {
   const { caught, guessed } = outcome;
   if (caught && guessed) return [1, 1];
@@ -61,8 +58,7 @@ export function applyScores(
   return next;
 }
 
-// Per-player points gained in a single round (the +delta), so a
-// scoreboard can show "previous + gained".
+// Per-player points gained this round (the +delta for "previous + gained").
 export function roundDeltas(
   outcome: ScoreOutcome,
   playerOrder: ReadonlyArray<string>,

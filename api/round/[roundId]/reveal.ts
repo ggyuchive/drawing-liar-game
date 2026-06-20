@@ -33,6 +33,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   return res.status(200).json({
     keywordDeck: secret.deck,
     keywordIndex: secret.keywordIndex,
+    liarKeywordIndex: secret.liarKeywordIndex ?? -1,
     liarId: secret.liarId,
   });
 }

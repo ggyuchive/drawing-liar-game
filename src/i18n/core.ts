@@ -1,9 +1,7 @@
 import { createContext } from 'react';
 import type { Locale } from './types';
 
-// Glob-based auto-discovery. Adding a new language requires nothing
-// but dropping a `<code>.ts` file into `src/i18n/lang/` — no edits
-// here, no registration step, no rebuild config tweaks.
+// Auto-discovery: drop a `<code>.ts` into `src/i18n/lang/`, no edits here.
 const modules = import.meta.glob<{ default: Locale }>('./lang/*.ts', {
   eager: true,
 });
@@ -14,16 +12,13 @@ for (const mod of Object.values(modules)) {
   LOCALES[locale.code] = locale;
 }
 
-// Data fallback: the canonical locale used to resolve missing UI
-// strings / keyword decks. English is the source of truth, so it stays
-// here even though the default *UI* language is Korean.
+// Data fallback for missing strings/decks (English is the source of
+// truth, even though the default UI language is Korean).
 export const FALLBACK_CODE = LOCALES.en
   ? 'en'
   : Object.keys(LOCALES)[0] ?? 'en';
 
-// The default UI locale a first-time visitor sees when their browser
-// language isn't one we ship. Korean by default; English-language
-// browsers are still auto-detected (see detectInitial).
+// Default UI locale: Korean, unless an explicit saved choice overrides it.
 export const DEFAULT_CODE = LOCALES.ko ? 'ko' : FALLBACK_CODE;
 
 export const LOCALE_LIST: ReadonlyArray<{ code: string; name: string }> =

@@ -8,9 +8,7 @@ import {
   type LocaleCtx,
 } from './core';
 
-// Always start in Korean, regardless of the browser/system language — an
-// explicit saved choice (from the 🌐 picker) is the only thing that
-// overrides it, so English speakers switch once and it sticks.
+// Start in Korean unless a saved choice overrides it (switch once, sticks).
 function detectInitial(): string {
   const stored = localStorage.getItem(STORAGE_KEY);
   if (stored && LOCALES[stored]) return stored;

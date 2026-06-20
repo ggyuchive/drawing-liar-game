@@ -7,12 +7,8 @@ import type { Phase } from '../types';
 
 export const MAX_PLAYERS = 8;
 
-/**
- * The host is the lexicographically smallest present clientID. Used
- * both to seed the first host and to re-elect when the current host
- * is no longer present. Every client computes the same answer, so
- * concurrent writes converge. Returns `null` when nobody is present.
- */
+// Host = smallest present id, kept while present. Every client computes
+// the same answer, so concurrent re-elections converge. null if empty.
 export function electHost(
   presentIds: ReadonlyArray<string>,
   currentHostId: string,
@@ -23,11 +19,8 @@ export function electHost(
   return [...presentIds].sort()[0] ?? null;
 }
 
-/**
- * The first `MAX_PLAYERS` present (join order) take part; later
- * joiners stay spectators. The chosen ids are shuffled for a fair
- * turn order via the injected `shuffleFn` (injectable for tests).
- */
+// First MAX_PLAYERS (join order) play; later joiners spectate. Shuffled
+// for a fair turn order (shuffleFn injectable for tests).
 export function pickPlayerOrder(
   presentIds: ReadonlyArray<string>,
   shuffleFn: <T>(xs: ReadonlyArray<T>) => Array<T>,
@@ -36,10 +29,7 @@ export function pickPlayerOrder(
   return shuffleFn(presentIds.slice(0, maxPlayers));
 }
 
-/**
- * Map each player to a distinct color from `palette` (already shuffled
- * by the caller). With <= palette.length players the colors are unique.
- */
+// Map each player to a color from `palette` (pre-shuffled by the caller).
 export function assignColors(
   order: ReadonlyArray<string>,
   palette: ReadonlyArray<string>,
@@ -51,11 +41,8 @@ export function assignColors(
   return out;
 }
 
-/**
- * Keep existing players' colors and give any newcomer an unused one,
- * so the per-game assignment stays stable across rounds. Returns the
- * full merged map.
- */
+// Keep existing colors, give newcomers an unused one, so assignments stay
+// stable across rounds.
 export function fillMissingColors(
   order: ReadonlyArray<string>,
   existing: Record<string, string>,
@@ -80,12 +67,9 @@ export type TurnAdvance = {
   turnIndex: number;
 };
 
-/**
- * Resolve a single turn handover: bump the cumulative `strokesDone`,
- * then either end the round (-> voting) once every player has taken
- * all their turns, or rotate to the next drawer. This is the logic
- * whose off-by-one would send a round to voting too early or too late.
- */
+// Resolve a turn handover: bump strokesDone, then either end the round
+// (-> voting) once everyone has taken all their turns, or rotate to the
+// next drawer. An off-by-one here sends a round to voting too early/late.
 export function resolveTurnAdvance(
   strokesDone: number,
   turnIndex: number,
@@ -107,10 +91,8 @@ export function resolveTurnAdvance(
   };
 }
 
-/**
- * A player who joined mid-round isn't in `playerOrder`; they spectate
- * until the next round snapshots presences into a fresh order.
- */
+// A player who joined mid-round isn't in playerOrder; they spectate until
+// the next round.
 export function isSpectator(
   phase: Phase,
   playerOrder: ReadonlyArray<string>,
@@ -124,11 +106,8 @@ export function isSpectator(
   );
 }
 
-/**
- * True when my chosen name collides with another present player who
- * has a lexicographically smaller clientID — so of two clashing
- * clients, exactly one (the larger id) is told the name is taken.
- */
+// My name clashes with a present player who has a smaller id — so of two
+// clashing clients, exactly one (the larger id) is told it's taken.
 export function nameIsTaken(
   presences: ReadonlyArray<{ clientID: string; name: string }>,
   myId: string,

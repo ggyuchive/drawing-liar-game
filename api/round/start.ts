@@ -1,6 +1,11 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { verifySession } from '../_lib/token.js';
-import { assignRound, generateRoundId, putRound } from '../_lib/rounds.js';
+import {
+  assignRound,
+  generateRoundId,
+  pickDifferentIndex,
+  putRound,
+} from '../_lib/rounds.js';
 
 function bearer(req: VercelRequest): string {
   const h = req.headers.authorization ?? '';
@@ -21,8 +26,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     room?: unknown;
     decks?: unknown;
     playerUids?: unknown;
+    mode?: unknown;
   };
   const { room, decks, playerUids } = body;
+  const mode = body.mode === 'fool' ? 'fool' : 'classic';
   const validDecks =
     Array.isArray(decks) &&
     decks.length > 0 &&
@@ -54,10 +61,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(403).json({ error: 'not a player' });
   }
 
+  const deckList = decks as Array<{ deck: string; size: number }>;
   const { liarId, deck, keywordIndex } = assignRound(
     playerUids as string[],
-    decks as Array<{ deck: string; size: number }>,
+    deckList,
   );
+  // Fool mode: give the liar a different word in the same deck.
+  const liarKeywordIndex =
+    mode === 'fool'
+      ? pickDifferentIndex(
+          deckList.find((d) => d.deck === deck)?.size ?? 0,
+          keywordIndex,
+        )
+      : -1;
   const roundId = generateRoundId();
   await putRound(roundId, {
     room,
@@ -65,6 +81,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     keywordIndex,
     liarId,
     playerUids: playerUids as string[],
+    mode,
+    liarKeywordIndex,
   });
   return res.status(200).json({ roundId });
 }

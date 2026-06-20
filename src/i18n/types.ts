@@ -34,10 +34,44 @@ export type LocaleUI = {
     title: string;
     rounds: string;
     turnsPerPlayer: string;
+    // Liar style (classic / fool) — see GameMode.
+    gameMode: string;
+    modeClassic: string;
+    modeFool: string;
+    // Drawing style (each device / one shared device) — see DrawMode.
+    drawMode: string;
+    drawEach: string;
+    drawHost: string;
+    // Korea-specific category toggle.
+    krCategories: string;
+    krOn: string;
+    krOff: string;
+    // Per-axis "?" explanation popups.
+    gameModeHelp: ReadonlyArray<{ name: string; desc: string }>;
+    drawModeHelp: ReadonlyArray<{ name: string; desc: string }>;
+    krCategoriesHelp: ReadonlyArray<{ name: string; desc: string }>;
+    helpLabel: string;
+    // Lobby host hand-off (tap a player to pass the crown).
+    hostBadge: string;
+    makeHost: string;
+    transferHostQ: (name: string) => string;
+    cancel: string;
     startGame: string;
     needMorePlayers: (n: number) => string;
     waiting: string;
     spectatorsLabel: (n: number) => string;
+  };
+  // One-device ('host') draw mode: the host device is the shared screen,
+  // players join by QR and draw on it.
+  hostMode: {
+    lobbyScreenNote: string;
+    scanToJoin: string;
+    screenTitle: string;
+    drawHerePhone: string;
+    // Turn handoff overlay on the shared screen (one device draws, so
+    // the next player needs a moment to take it).
+    nextUp: string;
+    startTurn: (name: string) => string;
   };
   room: {
     roomLabel: string;
@@ -82,6 +116,8 @@ export type LocaleUI = {
     yourRole: string;
     youAreLiar: string;
     keyword: string;
+    // Label for the category hint shown to the liar.
+    category: string;
     drawer: string;
     turn: string;
   };
@@ -129,6 +165,8 @@ export type LocaleUI = {
       guess: string,
       keyword: string,
     ) => string;
+    // Fool-round note: the different word the liar was given.
+    foolKeyword: (liar: string, liarWord: string) => string;
     // Labels beside the auto-advance countdown (no manual button).
     nextIn: string;
     finalIn: string;
@@ -141,12 +179,14 @@ export type LocaleUI = {
   };
 };
 
-// A keyword deck: a named, curated list of prompts. Every locale
-// must provide a `general` deck (the fallback); extra decks are
-// optional and surface in the in-room lobby's deck selector.
+// A named, curated list of prompts. Decks are parallel across locales
+// (same index = same concept), so a round stores deck+index only.
 export type KeywordDeck = {
   name: string;
   words: ReadonlyArray<string>;
+  // Korea-specific deck (Korean movies/people) — only in the pool when
+  // the host enables krCategories.
+  krOnly?: boolean;
 };
 
 export type Locale = {

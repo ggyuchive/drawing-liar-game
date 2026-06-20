@@ -1,14 +1,8 @@
-// Client wrapper for the keyword-secrecy backend (Vercel Functions).
-//
-// In production the server is authoritative: it assigns the keyword
-// index and the liar, and serves each client only its own role, so
-// neither is readable from the Yorkie document before reveal.
-//
-// During local `pnpm dev` (Vite only, no Functions) the calls fail.
-// In DEV we then fall back to a clearly-insecure LOCAL assignment that
-// the host writes straight into the document, so local multiplayer
-// still works without `vercel dev`. In production a failure surfaces as
-// a retryable error instead — never a silent keyword-less round.
+// Client wrapper for the keyword-secrecy backend (Vercel Functions). The
+// server is authoritative and serves each client only its own role, so
+// nothing is readable from the doc before reveal. Under plain `pnpm dev`
+// (no Functions) DEV falls back to an INSECURE local assignment the host
+// writes into the doc; in prod a failure surfaces as a retryable error.
 
 const tokens = new Map<string, Promise<string>>();
 
@@ -39,15 +33,19 @@ export type DeckRef = { deck: string; size: number };
 
 export type StartResult = {
   roundId: string;
-  // Present ONLY in the insecure DEV fallback: the host writes these
-  // into the document so peers (whose own fetch also fails) can read
-  // them. Absent in the secure server path.
-  assignment?: { liarId: string; deck: string; keywordIndex: number };
+  // Present only in the insecure DEV fallback (the host writes it into the
+  // doc); absent on the secure server path. liarKeywordIndex is the liar's
+  // fool-mode word (-1 in classic).
+  assignment?: {
+    liarId: string;
+    deck: string;
+    keywordIndex: number;
+    liarKeywordIndex: number;
+  };
 };
 
-// Pick a keyword across ALL decks, weighted by size so each word is
-// equally likely. Used only by the insecure DEV fallback below — the
-// production path does the same selection server-side.
+// Pick a keyword across all decks, weighted by size. DEV fallback only
+// (prod does this server-side).
 function pickAcrossDecks(decks: DeckRef[]): { deck: string; keywordIndex: number } {
   const valid = decks.filter((d) => Math.floor(d.size) > 0);
   if (valid.length === 0) return { deck: decks[0]?.deck ?? '', keywordIndex: 0 };
@@ -62,13 +60,22 @@ function pickAcrossDecks(decks: DeckRef[]): { deck: string; keywordIndex: number
   return { deck: last.deck, keywordIndex: Math.floor(last.size) - 1 };
 }
 
+// Deck index different from `exclude` (mirrors the server, DEV fallback).
+function pickDifferentIndex(size: number, exclude: number): number {
+  if (size <= 1) return exclude;
+  let i = Math.floor(Math.random() * (size - 1));
+  if (i >= exclude) i += 1;
+  return i;
+}
+
 export async function startRound(args: {
   room: string;
   uid: string;
   decks: DeckRef[];
   playerUids: string[];
+  mode: 'classic' | 'fool';
 }): Promise<StartResult> {
-  const { room, uid, decks, playerUids } = args;
+  const { room, uid, decks, playerUids, mode } = args;
   try {
     const token = await getToken(room, uid);
     const res = await fetch('/api/round/start', {
@@ -77,7 +84,7 @@ export async function startRound(args: {
         'content-type': 'application/json',
         authorization: `Bearer ${token}`,
       },
-      body: JSON.stringify({ room, decks, playerUids }),
+      body: JSON.stringify({ room, decks, playerUids, mode }),
     });
     if (!res.ok) throw new Error(`start ${res.status}`);
     const { roundId } = (await res.json()) as { roundId?: string };
@@ -92,10 +99,13 @@ export async function startRound(args: {
       );
       const liarId = playerUids[Math.floor(Math.random() * playerUids.length)];
       const { deck, keywordIndex } = pickAcrossDecks(decks);
+      const size = Math.floor(decks.find((d) => d.deck === deck)?.size ?? 0);
+      const liarKeywordIndex =
+        mode === 'fool' ? pickDifferentIndex(size, keywordIndex) : -1;
       const part = () => Math.random().toString(36).slice(2);
       return {
         roundId: `local_${part()}`,
-        assignment: { liarId, deck, keywordIndex },
+        assignment: { liarId, deck, keywordIndex, liarKeywordIndex },
       };
     }
     throw err;
@@ -103,7 +113,7 @@ export async function startRound(args: {
 }
 
 export type RoleView =
-  | { isLiar: true }
+  | { isLiar: true; keywordDeck: string }
   | { isLiar: false; keywordDeck: string; keywordIndex: number };
 
 export async function fetchRole(
@@ -122,6 +132,7 @@ export async function fetchRole(
 export type RevealResult = {
   keywordDeck: string;
   keywordIndex: number;
+  liarKeywordIndex: number;
   liarId: string;
 };
 

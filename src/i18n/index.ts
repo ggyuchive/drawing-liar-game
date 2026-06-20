@@ -6,6 +6,7 @@ export {
   pickKeyword,
   pickKeywordIndex,
   keywordAt,
+  deckName,
   deckSize,
   deckSizes,
   deckListFor,
