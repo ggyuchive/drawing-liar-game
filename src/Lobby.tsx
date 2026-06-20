@@ -41,9 +41,8 @@ export default function Lobby({
     return () => clearTimeout(id);
   }, [joinError, onDismissError]);
 
-  // Live active room + user counts (from the backend in prod; demo
-  // numbers under plain `pnpm dev` so the badge is verifiable).
-  const [counts, setCounts] = useState<ActiveCounts | null>(null);
+  // Live active room + user counts (zeros when no backend).
+  const [counts, setCounts] = useState<ActiveCounts | 'unknown' | null>(null);
   useEffect(() => {
     let cancelled = false;
     const load = () =>
@@ -60,9 +59,7 @@ export default function Lobby({
 
   const handleCreate = () => {
     if (!trimmedName) return;
-    // The room creator becomes host, so they always play (never spectate).
     setSessionSpectator(false);
-    // mustExist = false: we're opening a brand-new room.
     onEnter(trimmedName, generateRoomCode(), false);
   };
 
@@ -70,7 +67,6 @@ export default function Lobby({
     const code = normalizeRoomCode(room);
     if (!trimmedName || !code) return;
     setSessionSpectator(asSpectator);
-    // mustExist = true: only join a room that already has someone in it.
     onEnter(trimmedName, code, true);
   };
 
@@ -86,7 +82,9 @@ export default function Lobby({
         {counts !== null && (
           <span className="lobby__active">
             <span className="lobby__activeDot" />
-            {t.activeCount(counts.rooms, counts.users)}
+            {counts === 'unknown'
+              ? t.activeCount(0, 0)
+              : t.activeCount(counts.rooms, counts.users)}
           </span>
         )}
         <button
@@ -96,18 +94,23 @@ export default function Lobby({
         >
           ?
         </button>
-        <select
-          className="lobby__topLang"
-          value={locale.code}
-          onChange={(e) => setLocaleCode(e.target.value)}
-          aria-label={t.languageLabel}
-        >
-          {LOCALE_LIST.map((l) => (
-            <option key={l.code} value={l.code}>
-              🌐 {l.name}
-            </option>
-          ))}
-        </select>
+        <span className="langSelect">
+          <span className="langSelect__globe" aria-hidden="true">
+            🌐
+          </span>
+          <select
+            className="lobby__topLang langSelect__field"
+            value={locale.code}
+            onChange={(e) => setLocaleCode(e.target.value)}
+            aria-label={t.languageLabel}
+          >
+            {LOCALE_LIST.map((l) => (
+              <option key={l.code} value={l.code}>
+                {l.name}
+              </option>
+            ))}
+          </select>
+        </span>
         <a
           className="lobby__github"
           href={REPO_URL}
@@ -160,7 +163,7 @@ export default function Lobby({
           value={room}
           onChange={(e) => setRoom(e.target.value.toUpperCase())}
           placeholder={t.roomCodePlaceholder}
-          maxLength={6}
+          maxLength={5}
           onKeyDown={(e) => {
             if (e.key === 'Enter' && !e.nativeEvent.isComposing)
               handleJoin(false);

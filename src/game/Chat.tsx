@@ -20,8 +20,8 @@ const CHAT_CAP = 200;
 type Props = {
   myActorID: string | null;
   presences: Array<{ clientID: string; presence: CanvasPresence }>;
-  // When true (local actor is the liar during guessing), the typing
-  // indicator write is suppressed so others can't infer thinking time.
+  // Suppress the typing indicator (liar during guessing) so others can't
+  // infer thinking time.
   suppressTyping: boolean;
 };
 
@@ -37,10 +37,8 @@ export default function Chat({ myActorID, presences, suppressTyping }: Props) {
     [root.chat],
   );
 
-  // Stamp each message with the local time it FIRST appears to this
-  // viewer, then show that. Sender device clocks can't be trusted
-  // (they may be hours off), so this gives every viewer a consistent,
-  // monotonic timeline in their own clock.
+  // Show each message at the local time it first appears here — sender
+  // clocks aren't trusted, so every viewer gets a monotonic timeline.
   const [seenAt, setSeenAt] = useState<Record<string, number>>({});
   useEffect(() => {
     const missing = messages.filter((m) => seenAt[m.id] === undefined);
@@ -160,9 +158,8 @@ export default function Chat({ myActorID, presences, suppressTyping }: Props) {
           placeholder={t.placeholder}
           onChange={(e) => onChange(e.target.value)}
           onKeyDown={(e) => {
-            // Guard against IME composition: a Korean (etc.) Enter
-            // that commits the composition also fires keydown, which
-            // would otherwise send the message twice.
+            // isComposing: Korean IME Enter commits composition AND fires
+            // keydown, which would send twice without the guard.
             if (e.key === 'Enter' && !e.nativeEvent.isComposing) send();
           }}
           onBlur={stopTyping}

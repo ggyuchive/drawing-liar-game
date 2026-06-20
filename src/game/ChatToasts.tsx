@@ -12,8 +12,6 @@ type Props = {
 type Toast = {
   key: string;
   kind: 'join' | 'left' | 'msg';
-  // For a chat message: the author name + color; the message body is text.
-  // For a system event: text holds the whole "X joined/left" label.
   author?: string;
   color: string;
   text: string;
@@ -22,8 +20,8 @@ type Toast = {
 const TOAST_MS = 4000;
 const MAX_VISIBLE = 5;
 
-// One toast that removes itself after a fixed delay. Self-contained so a
-// new incoming message never cancels an existing toast's timer.
+// Self-removing toast — self-contained so a new message never cancels an
+// existing toast's timer.
 function ChatToastItem({
   toast,
   onDone,
@@ -52,12 +50,8 @@ function ChatToastItem({
   );
 }
 
-/**
- * Floating, auto-dismissing toasts for chat messages and join/left
- * events, so players who don't have the chat panel open still see them.
- * Shown regardless of whether the panel is open; multiple stack and each
- * fades out on its own timer.
- */
+// Floating, auto-dismissing toasts for chat + join/left, shown whether or
+// not the panel is open. Each fades on its own timer.
 export default function ChatToasts({ myActorID, presences }: Props) {
   const { root } = useDocument<DocRoot, CanvasPresence>();
   const t = useT().chat;
@@ -74,8 +68,8 @@ export default function ChatToasts({ myActorID, presences }: Props) {
     setToasts((prev) => prev.filter((x) => x.key !== key));
   }, []);
 
-  // Only toast entries that arrive AFTER mount (seed with existing ids so
-  // history isn't replayed). null until the first observation.
+  // Toast only entries arriving after mount (seed with existing ids so
+  // history isn't replayed). null until first observation.
   const seenRef = useRef<Set<string> | null>(null);
   const items = (root.chat ?? []) as unknown as ReadonlyArray<ChatMessage>;
   const chatSig = items.map((m) => m.id).join('|');
@@ -115,9 +109,7 @@ export default function ChatToasts({ myActorID, presences }: Props) {
     }
     if (next.length === 0) return;
 
-    // Deferred so the setState isn't synchronous in the effect body. Only
-    // the ADD is scheduled here; each toast removes itself (ChatToastItem),
-    // so a later message can't cancel an earlier toast's dismissal.
+    // Deferred: no synchronous setState in the effect body.
     const addId = setTimeout(() => {
       setToasts((prev) => [...prev, ...next].slice(-MAX_VISIBLE));
     }, 0);

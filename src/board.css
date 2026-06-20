@@ -4,15 +4,10 @@
   flex-direction: column;
   gap: 12px;
   align-items: center;
-  /* Size everything relative to the available area (the main column
-     between the side profiles + chat), not the viewport, so the
-     canvas fills the space and shrinks instead of being clipped. */
   width: 100%;
   max-width: 1000px;
   min-width: 0;
   min-height: 0;
-  /* Fill the play column exactly so the canvas can flex-shrink to fit
-     between the HUD and gauges — never tall enough to need a scroll. */
   height: 100%;
 }
 
@@ -53,7 +48,8 @@
 }
 
 .hud__liar {
-  font-size: 16px;
+  font-size: 20px;
+  letter-spacing: -0.3px;
   color: var(--danger);
 }
 
@@ -65,8 +61,6 @@
   width: 100%;
   min-width: 0;
   align-items: stretch;
-  /* Take all remaining height in the phase column; the surface fits
-     inside whatever is left after the HUD label above. */
   flex: 1;
   min-height: 0;
 }
@@ -78,9 +72,7 @@
   flex: 0 0 auto;
 }
 
-/* The flex region the canvas fits into. `container-type: size` lets the
-   surface size itself off this box's real width/height (cqw/cqh), and we
-   center the fitted surface inside it. */
+/* container-type: size lets the surface size off cqw/cqh. */
 .canvas__stage {
   flex: 1;
   min-height: 0;
@@ -105,10 +97,8 @@
   border: 1px solid var(--border);
   border-radius: 12px;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.06);
-  /* Fit the 1:1 surface inside the stage with zero ratio risk: pin only
-     the HEIGHT (to the smaller of the stage's height or its width), and
-     let width follow from aspect-ratio. One explicit axis + aspect-ratio
-     = the ratio can never be violated. */
+  /* Pin HEIGHT only, let width follow from aspect-ratio — the ratio can
+     never be violated with one explicit axis + aspect-ratio. */
   height: min(100cqh, 100cqw);
   width: auto;
   aspect-ratio: 1 / 1;
@@ -227,8 +217,6 @@
   min-height: 0;
 }
 
-/* Chat docked to the side (default) → body is a row: stage | chat.
-   Chat docked to the bottom → body is a column: stage / chat. */
 .room__body--chat-side {
   flex-direction: row;
   align-items: stretch;
@@ -238,7 +226,6 @@
   flex-direction: column;
 }
 
-/* Stage = the left profile panel + the main play area, side by side. */
 .room__stage {
   flex: 1;
   display: flex;
@@ -252,11 +239,7 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  /* `safe center` keeps content centered when it fits but aligns it to
-     the top (instead of clipping the start edge) if it ever overflows —
-     so the HUD is always reachable. The drawing phase fills this column
-     exactly and never overflows; only the tall judge/lobby views might
-     scroll, and then they top-align cleanly. */
+  /* safe center: top-aligns on overflow so the HUD is always reachable. */
   justify-content: safe center;
   padding: 24px;
   min-width: 0;
@@ -296,6 +279,28 @@
   margin: 0;
   color: var(--text-soft);
   font-size: 14px;
+}
+
+.hostBoard {
+  position: relative;
+  flex: 1;
+  /* Without an explicit width, .phase's align-items:center collapses this
+     to content-width and the 1:1 surface shrinks to nothing. */
+  width: 100%;
+  min-height: 0;
+  min-width: 0;
+  display: flex;
+}
+
+.hostTurn__start {
+  margin-top: 8px;
+}
+
+.hostMode__hint {
+  margin: 0;
+  font-size: 14px;
+  color: var(--text-soft);
+  text-align: center;
 }
 
 /* ---------- Chat / join-leave toasts ---------- */
@@ -424,7 +429,7 @@
   padding: 4px 10px;
 }
 
-/* ---------- Left profile panel: a 2-col grid, up to 8 (2×4) ---------- */
+/* ---------- Left profile panel ---------- */
 .room__profiles {
   display: flex;
   flex-direction: column;
@@ -446,8 +451,6 @@
   border: 1.5px solid var(--border);
   background: var(--bg);
   text-align: left;
-  /* Each box = column height ÷ number of players (1/N), so they fill
-     the sidebar evenly and grow taller with fewer people. */
   flex: 1 1 0;
   min-height: 0;
 }
@@ -456,7 +459,14 @@
   box-shadow: 0 0 0 2px var(--accent);
 }
 
-/* Current drawer's turn, marked in the side panel. */
+.profile--transfer {
+  cursor: pointer;
+}
+.profile--transfer:hover {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
 .profile--drawing {
   border-color: var(--accent);
   background: var(--accent-soft);
@@ -492,7 +502,7 @@
   font-size: 22px;
 }
 
-/* ---------- Judging phases: drawing stays visible ---------- */
+/* ---------- Judging phases ---------- */
 .phase--judge {
   display: flex;
   flex-direction: column;
@@ -606,14 +616,9 @@
   flex-direction: column;
   border-left: 1px solid var(--border);
   background: var(--bg-elev);
-  /* Bound the panel so the message list scrolls internally instead
-     of stretching the page as messages pile up. */
   min-height: 0;
 }
 
-/* Chat docked to the bottom: full width, capped height, list scrolls.
-   The board above just gets a shorter column and the canvas flex-fits
-   it — no canvas-size hack required. */
 .room__body--chat-bottom .chat {
   width: auto;
   border-left: none;
@@ -700,13 +705,8 @@
   filter: brightness(1.05);
 }
 
-/* Stepped reflow so the middle never gets squeezed into a horizontal
-   scroll. Thresholds ≈ sidebar widths + a comfortable middle:
-   profiles(300) + chat(380) + middle(~520) ≈ 1200;
-   profiles(300) + middle(~520) ≈ 820. */
-
-/* Step 1 — not enough room for profiles + middle + side chat:
-   push the side chat down to the bottom (profiles stay on the side). */
+/* Responsive reflow: 1200px collapses side chat to bottom; 820px moves
+   profiles to a horizontal strip at the top. */
 @media (max-width: 1200px) {
   .room__body--chat-side {
     flex-direction: column;
@@ -718,12 +718,8 @@
     border-top: 1px solid var(--border);
     max-height: 35vh;
   }
-  /* No canvas-size hack needed: the chat docking below simply shrinks
-     the play column, and the canvas flex-fits whatever height is left. */
 }
 
-/* Step 2 — even profiles + middle don't fit: move the profiles up to
-   a horizontal strip across the top, chat stays at the bottom. */
 @media (max-width: 820px) {
   .room__body {
     flex-direction: column;
@@ -733,9 +729,6 @@
     flex-direction: column;
   }
 
-  /* Chat is closed by default at this width (Room's chatOpen default);
-     the toggle/dock buttons stay visible and just shrink with the bar.
-     The panel docks below when the user opens it. */
   .chat {
     width: auto;
     border-left: none;
@@ -743,20 +736,16 @@
     max-height: 30vh;
   }
 
-  /* Top bar: don't cram it to fit — keep controls full-size and let the
-     row scroll sideways (anchored left) when the window is too narrow. */
   .room__header {
     gap: 8px;
     padding: 10px 12px;
   }
 
-  /* Keep the brush meter + timer on one row to save vertical space. */
   .phase__gauges {
     flex-wrap: wrap;
   }
 
-  /* Profile list: a single horizontal row that scrolls sideways —
-     never a second line. */
+  /* Horizontal profile strip that scrolls sideways, never wraps. */
   .room__profiles {
     width: auto;
     flex-direction: row;

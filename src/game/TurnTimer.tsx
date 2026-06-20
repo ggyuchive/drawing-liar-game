@@ -7,25 +7,28 @@ type Props = {
   config: GameConfig;
 };
 
-// Counts down locally from the moment this client observes the turn
-// start, re-anchoring whenever the turn changes. Mirrors the
-// auto-advance logic in Room (also local), so it stays correct
-// regardless of clock differences between devices. All time reads
-// happen inside the effect (never during render).
+// Local countdown, re-anchored on each turn change — mirrors Room's
+// auto-advance so clock skew between devices doesn't matter.
 export default function TurnTimer({ round, config }: Props) {
   const t = useT().canvas;
   const turnTimeMs = config.turnTimeMs > 0 ? config.turnTimeMs : 10_000;
   const turnKey = `${round.turnStartedAt}:${round.turnIndex}`;
 
+  // turnStartedAt 0 = pending host handoff; freeze at full time.
+  const pending = round.turnStartedAt === 0;
   const [secs, setSecs] = useState(() => Math.ceil(turnTimeMs / 1000));
   useEffect(() => {
     const startedAt = Date.now();
     const id = setInterval(() => {
+      if (pending) {
+        setSecs(Math.ceil(turnTimeMs / 1000));
+        return;
+      }
       const remaining = Math.max(0, startedAt + turnTimeMs - Date.now());
       setSecs(Math.ceil(remaining / 1000));
     }, 100);
     return () => clearInterval(id);
-  }, [turnKey, turnTimeMs]);
+  }, [turnKey, turnTimeMs, pending]);
 
   const level = secs <= 3 ? 'danger' : secs <= 5 ? 'warning' : 'ok';
 

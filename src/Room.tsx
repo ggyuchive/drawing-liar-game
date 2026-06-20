@@ -48,11 +48,9 @@ import {
 type Props = {
   room: string;
   name: string;
-  // True when joining/spectating: the room must already have another live
-  // player, else we bounce back to the lobby instead of opening a new one.
+  // Joining/spectating: require another live player, else bounce to lobby.
   mustExist?: boolean;
   onLeave: (opts?: { notFound?: boolean; full?: boolean }) => void;
-  // Called once the room is confirmed real, so reloads skip the check.
   onValidated?: (room: string) => void;
 };
 
@@ -60,8 +58,7 @@ export type DocRoot = {
   game: JSONObject<Game>;
   strokes: JSONArray<JSONObject<Stroke>>;
   chat: JSONArray<JSONObject<ChatMessage>>;
-  // uid -> display name. A durable copy so a player's name (and their
-  // profile) survives a momentary presence drop instead of showing "???".
+  // uid -> name; durable so a presence blip doesn't blank names.
   roster: Record<string, string>;
 };
 
@@ -88,30 +85,23 @@ function RoomInner({
     DocRoot,
     CanvasPresence
   >();
-  // Identity is the stable per-tab uid carried in presence, not the
-  // connection-scoped Yorkie actorID/clientID (which changes on every
-  // reload/reconnect and would orphan all game state keyed on it).
+  // Stable per-tab uid, not the connection-scoped Yorkie actorID.
   const myActorID = myUid;
   const t = useT();
   const { locale, setLocaleCode } = useLocale();
-  // Chat starts closed on narrow/mobile screens (where it would cover
-  // the board), open on desktop.
+  // Closed on narrow screens (would cover the board), open on desktop.
   const [chatOpen, setChatOpen] = useState(
     () => typeof window === 'undefined' || window.innerWidth > 820,
   );
   const [chatPos, setChatPos] = useState<'side' | 'bottom'>('side');
   const [highlightId, setHighlightId] = useState<string | null>(null);
-  // The profile strip; used to scroll the current drawer into view when
-  // it overflows (a horizontal row on narrow screens, a vertical column
-  // on desktop).
+  // Lobby host hand-off target (driven by side profiles + lobby roster).
+  const [transferUid, setTransferUid] = useState<string | null>(null);
   const profilesRef = useRef<HTMLElement>(null);
   const [howToOpen, setHowToOpen] = useState(false);
   const [copied, setCopied] = useState(false);
-  // Surfaced when the keyword-secrecy server can't be reached to start
-  // or reveal a round (instead of silently starting a keyword-less one).
   const [roundError, setRoundError] = useState(false);
-  // This client's own role + keyword for the current round, fetched
-  // per-client from the server (the document withholds them).
+  // This client's own role + keyword, fetched per-client (doc withholds).
   const [serverRole, setServerRole] = useState<{
     roundId: string;
     isLiar: boolean;
@@ -122,29 +112,20 @@ function RoomInner({
   const hostId = ready ? root.game.hostId : '';
   const disconnected = connection === StreamConnectionStatus.Disconnected;
 
-  // A room "exists" only if at least one OTHER live player is present —
-  // attaching to a code creates an empty Yorkie doc, so a typo'd code
-  // otherwise drops you into a phantom new room. When joining (mustExist)
-  // we wait a short grace for peers' presence to sync, then bounce back
-  // to the lobby with a transient error if we're still alone. Creators
-  // (and reloads of an already-entered room) skip this. The latest
-  // "someone else here" reading is kept in a ref so presence churn during
-  // the grace doesn't restart the timer.
+  // A room "exists" only if another live player is present — a typo'd code
+  // otherwise opens a phantom empty room. Ref holds the latest reading so
+  // churn during the grace window doesn't reset the timer.
   const otherPresent =
     ready && presences.some((p) => p.presence.uid !== myActorID);
   const otherPresentRef = useRef(otherPresent);
   useEffect(() => {
     otherPresentRef.current = otherPresent;
   });
-  // `confirmed` gates the room UI: until a join is confirmed real we show
-  // a neutral "joining…" screen instead of the waiting room, so a bad
-  // code never flashes the room before bouncing. Creators (and reloads of
-  // an already-entered room) start confirmed.
   const [confirmed, setConfirmed] = useState(!mustExist);
   useEffect(() => {
     if (!otherPresent || confirmed) return;
     onValidated(room);
-    // Deferred so the setState isn't synchronous inside the effect body.
+    // Deferred: no synchronous setState in an effect body.
     const id = setTimeout(() => setConfirmed(true), 0);
     return () => clearTimeout(id);
   }, [otherPresent, confirmed, room, onValidated]);
@@ -156,10 +137,8 @@ function RoomInner({
     return () => clearTimeout(id);
   }, [mustExist, loading, error, onLeave]);
 
-  // 8-player cap. Rank present players by join time (earliest first); if
-  // I'm a player past the 8th seat, I'm the overflow and bounce MYSELF
-  // with a "room full" notice — so a 9th joiner never displaces one of
-  // the existing 8. Spectators don't count and are never capped.
+  // 8-player cap: ranked by join time, anyone past the 8th seat bounces
+  // itself so a 9th joiner never displaces an existing player.
   const overCapacity =
     ready &&
     !!myActorID &&
@@ -181,15 +160,11 @@ function RoomInner({
     if (overCapacity) onLeave({ full: true });
   }, [overCapacity, onLeave]);
 
-  // Host election + promotion. The host is the lexicographically
-  // smallest present uid. This both seeds the first host and re-elects
-  // when the current host's tab is gone — every client computes the
-  // same survivor, and only that survivor writes, so concurrent CRDT
-  // writes converge.
+  // Host = smallest present uid. Every client computes the same survivor
+  // and only that one writes, so re-election converges without conflicts.
   useEffect(() => {
     if (loading || error || !myActorID) return;
-    // Prefer a non-spectator as host (the host plays); fall back to any
-    // present uid only if everyone is a spectator.
+    // Prefer a non-spectator (the host plays); fall back only if all are.
     const nonSpectators = presences
       .filter((p) => !p.presence.spectator)
       .map((p) => p.presence.uid);
@@ -197,16 +172,13 @@ function RoomInner({
       ? nonSpectators
       : presences.map((p) => p.presence.uid);
     const elected = electHost(pool, hostId);
-    // No change needed, or it's not my job to write it.
     if (!elected || elected === hostId || myActorID !== elected) return;
     update((r) => {
       r.game.hostId = elected;
     });
   }, [loading, error, myActorID, hostId, presences, update]);
 
-  // The host can't be a spectator: if I'm the host but marked as a
-  // spectator (e.g. an all-spectator room promoted me), clear it so I
-  // become a player.
+  // The host must play: if I was promoted while a spectator, clear it.
   const iAmSpectatorNow =
     presences.find((p) => p.presence.uid === myActorID)?.presence.spectator ??
     false;
@@ -219,10 +191,7 @@ function RoomInner({
     }
   }, [loading, error, myActorID, hostId, iAmSpectatorNow, update]);
 
-  // Adopt the color the game assigned to me. Colors are assigned in
-  // the document at game start (so they're distinct and stable for
-  // the whole game); each client copies its own into presence so the
-  // rest of the UI keeps reading presence.color.
+  // Adopt my game-assigned color into presence (UI reads presence.color).
   const myAssignedColor =
     ready && myActorID ? root.game.colors?.[myActorID] : undefined;
   const myPresenceColor = presences.find(
@@ -235,11 +204,8 @@ function RoomInner({
     });
   }, [myAssignedColor, myPresenceColor, update]);
 
-  // In the waiting room, hand out colors in palette order (1→2→3…) by a
-  // stable sort of the present players, so everyone agrees and the room
-  // looks ordered rather than a random clash. The game-start assignment
-  // then reshuffles within the same top-N set. (Game colors win once set,
-  // so this only matters during the lobby phase.)
+  // Lobby colors: palette order by a stable sort so everyone agrees.
+  // Game start reshuffles within the top-N.
   const myLobbyColor =
     ready && myActorID && root.game.phase === 'lobby'
       ? (() => {
@@ -263,13 +229,9 @@ function RoomInner({
     });
   }, [myLobbyColor, myPresenceColor, update]);
 
-  // Keep our presence alive for peers. Yorkie holds presence via a
-  // heartbeat that stalls when a tab is backgrounded/throttled — the
-  // server then reclaims the session and peers see us drop (name turns
-  // to "???"). Re-assert presence on a timer and whenever the tab
-  // regains focus or the user interacts, which is what sending a chat
-  // message already does by accident. Fully frozen background tabs
-  // still can't run JS, but we recover the instant the tab is touched.
+  // Keep presence alive: a backgrounded tab's heartbeat stalls and the
+  // server drops us (peers see "???"). Re-assert on a timer and on
+  // focus/interaction so we recover the instant the tab is touched.
   useEffect(() => {
     if (loading || error) return;
     let last = 0;
@@ -279,8 +241,6 @@ function RoomInner({
       last = now;
       update((r, presence) => {
         presence.set({ lastSeen: now });
-        // Persist my name once so peers can still resolve it (and my
-        // profile) from the document if my presence ever blips.
         if (myActorID && r.roster[myActorID] !== myName) {
           r.roster[myActorID] = myName;
         }
@@ -304,10 +264,9 @@ function RoomInner({
     };
   }, [loading, error, update, myActorID, myName]);
 
-  // Announce joins/leaves as chat messages. The host owns the writes
-  // (so each event appears once for everyone); a short grace on leaves
-  // avoids spam from a brief presence blip. Latest writer/name context
-  // is kept in a ref so the detector only depends on *who* is present.
+  // Announce joins/leaves as chat. Host owns the writes (once per event);
+  // a grace on leaves absorbs blips. Context in a ref so the detector
+  // depends only on who is present.
   const liveUidList = ready ? presences.map((p) => p.presence.uid) : [];
   const liveKey = [...new Set(liveUidList)].sort().join(',');
   const sysCtxRef = useRef<{
@@ -339,8 +298,7 @@ function RoomInner({
       },
     };
   });
-  // null until the first observation, so we don't announce people who
-  // were already in the room when we joined.
+  // null until first observation: don't announce people already here.
   const announcedRef = useRef<Set<string> | null>(null);
   const leaveTimersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(
     new Map(),
@@ -385,9 +343,7 @@ function RoomInner({
     };
   }, []);
 
-  // Advance the drawing turn: bump strokesDone, rotate to the next
-  // drawer (resetting the brush budget + timer anchor) or move to
-  // voting. Shared by the drawer's pointer-up and the deadline timer.
+  // Bump strokesDone, rotate to the next drawer or move to voting.
   const advanceTurn = useCallback(() => {
     update((r) => {
       if (r.game.phase !== 'drawing') return;
@@ -405,18 +361,19 @@ function RoomInner({
       } else {
         r.game.round.turnIndex = adv.turnIndex;
         r.game.round.brushUsedPx = 0;
-        r.game.round.turnStartedAt = Date.now();
+        // One-device mode: leave the next turn pending (0) so the host
+        // taps "start" after handing the board over; otherwise start now.
+        r.game.round.turnStartedAt =
+          r.game.config.drawMode === 'host' ? 0 : Date.now();
       }
     });
   }, [update]);
 
-  // Turn auto-advance, measured LOCALLY. Each client counts the full
-  // turn time from the moment it observes the turn start (keyed on
-  // turnStartedAt), instead of subtracting a document wall-clock from
-  // its own clock. Cross-device clock skew would otherwise make the
-  // remaining time negative and fire instantly, cascading every turn
-  // straight into voting.
+  // Turn auto-advance is timed LOCALLY from when this client observes the
+  // turn start — the doc wall-clock would let cross-device skew fire turns
+  // instantly, cascading into voting.
   const phase = ready ? root.game.phase : 'lobby';
+  const drawMode = ready ? root.game.config.drawMode : 'each';
   const turnStartedAt = ready ? root.game.round.turnStartedAt : 0;
   const turnIndex = ready ? root.game.round.turnIndex : 0;
   const turnTimeMs =
@@ -424,9 +381,6 @@ function RoomInner({
       ? root.game.config.turnTimeMs
       : DEFAULT_TURN_TIME_MS;
 
-  // Whether this client should write the advance when the timer fires
-  // — the drawer, or the host if the drawer has left. Held in refs so
-  // presence changes don't reset the running countdown.
   const roundOrder = ready ? root.game.round.playerOrder : [];
   const drawerId =
     roundOrder.length > 0
@@ -434,9 +388,7 @@ function RoomInner({
       : '';
   const drawerPresent = presences.some((p) => p.presence.uid === drawerId);
 
-  // Pause an in-progress game when fewer than 3 players remain present
-  // — the round can't meaningfully continue, so freeze the turn timer
-  // and show an overlay until people (re)join.
+  // Pause when fewer than 3 players remain: freeze the timer + overlay.
   const livePlayerCount = roundOrder.filter((uid) =>
     presences.some((p) => p.presence.uid === uid),
   ).length;
@@ -455,7 +407,11 @@ function RoomInner({
       phase === 'drawing' &&
       !paused &&
       !!myActorID &&
-      (myActorID === drawerId || (!drawerPresent && myActorID === hostId));
+      // One-device: the host board owns every advance. Otherwise the
+      // drawer does, or the host if the drawer is absent.
+      (drawMode === 'host'
+        ? myActorID === hostId
+        : myActorID === drawerId || (!drawerPresent && myActorID === hostId));
   });
 
   useEffect(() => {
@@ -471,28 +427,24 @@ function RoomInner({
 
   const roundIndex = ready ? root.game.round.index : 0;
 
-  // Keyword secrecy. The opaque roundId lets each client ask the server
-  // for its own role; `docHasSecret` is true once the secret lives in
-  // the document (the dev fallback writes it from the start; the reveal
-  // step writes it for everyone), in which case no server fetch is run.
+  // Keyword secrecy: roundId lets each client fetch its own role.
+  // docHasSecret is true once the secret is in the doc (dev fallback or
+  // after reveal), skipping the server fetch.
   const roundId = ready ? root.game.round.roundId ?? '' : '';
   const docLiarId = ready ? root.game.round.liarId : '';
   const docKeywordIndex = ready ? root.game.round.keywordIndex : -1;
   const docHasSecret = !!docLiarId || docKeywordIndex >= 0;
-  // Tie state for the one-shot tie-break (consumed in resolveVoting). A
-  // tie-break is warranted whenever the vote produced no single clear
-  // accusation: either two-plus players share the top (tied), OR nobody
-  // voted at all (accusedId === '', i.e. an all-abstain 0-vote round).
+  // Tie-break needed when the vote gives no single accusation (a top tie,
+  // or nobody voted).
   const voteTally = ready
     ? tallyVotes(root.game.round.votes)
     : { tied: false, accusedId: '', counts: {} };
   const voteNeedsTieBreak = ready && (voteTally.tied || voteTally.accusedId === '');
   const tieBreakUsed = ready ? !!root.game.round.tieBreakUsed : false;
 
-  // Fetch this client's own role + keyword for the drawing phase from
-  // the secrecy server (the document withholds them). setState only ever
-  // runs in the async resolution, so the React-Compiler effect rules are
-  // satisfied. Skipped when the document already carries the secret.
+  // Fetch this client's role + keyword from the secrecy server (skipped
+  // when the secret is already in the doc). setState only in the async
+  // resolution, so it's effect-rule safe.
   useEffect(() => {
     if (loading || error) return;
     if (phase !== 'drawing' || !roundId || docHasSecret || !myActorID) return;
@@ -502,7 +454,12 @@ function RoomInner({
         if (cancelled) return;
         setServerRole(
           view.isLiar
-            ? { roundId, isLiar: true, keywordDeck: '', keywordIndex: -1 }
+            ? {
+                roundId,
+                isLiar: true,
+                keywordDeck: view.keywordDeck,
+                keywordIndex: -1,
+              }
             : {
                 roundId,
                 isLiar: false,
@@ -527,10 +484,7 @@ function RoomInner({
     };
   }, [loading, error, phase, roundId, docHasSecret, myActorID, room]);
 
-  // Keep the current drawer's profile visible when the strip overflows:
-  // scroll it into view each time the turn moves to a new drawer.
-  // `block:'nearest'`/`inline:'center'` only nudge the scrollable strip,
-  // never the page. Keyed on the drawer + phase so it fires on rotation.
+  // Scroll the current drawer's profile into view (nudges only the strip).
   useEffect(() => {
     if (phase !== 'drawing' || !drawerId) return;
     const el = profilesRef.current?.querySelector('.profile--drawing');
@@ -549,9 +503,7 @@ function RoomInner({
     return () => clearInterval(id);
   }, [loading, error, room, myActorID]);
 
-  // Latest reveal context for resolveVoting, kept in a ref so the
-  // callback (and the timers depending on it) stays stable across
-  // presence churn. Updated every render via the effect below.
+  // Reveal context in a ref so resolveVoting stays stable across churn.
   const revealCtxRef = useRef<{
     roundId: string;
     hasSecret: boolean;
@@ -567,8 +519,7 @@ function RoomInner({
     };
   });
 
-  // Voting: the host advances to reveal when everyone present has
-  // voted, or after the 30s cap — no manual "reveal" button.
+  // Host advances to reveal when all present have voted, or after the cap.
   const votingAllIn =
     ready &&
     phase === 'voting' &&
@@ -583,24 +534,16 @@ function RoomInner({
 
   const resolveVoting = useCallback(async () => {
     const ctx = revealCtxRef.current;
-    // No single clear accusation (a tie, or nobody voted) with the
-    // one-shot tie-break still available → give everyone ONE more turn
-    // (not a full restart) and a fresh vote. We don't jump straight back
-    // to drawing: enter the `tiebreak` phase, which shows a popup and
-    // auto-resumes after a few seconds (see the tie-break effect). The
-    // turn budget is extended now; `turnStartedAt` is set when drawing
-    // actually resumes so the popup doesn't eat the drawer's time. A
-    // second inconclusive vote resolves as "not caught" (the liar wins).
+    // Inconclusive vote with the one-shot tie-break available → one more
+    // turn + fresh vote via the tiebreak phase. A second inconclusive
+    // vote resolves as "not caught" (the liar wins).
     if (ctx.needsTieBreak && !ctx.tieBreakUsed) {
       update((r) => {
         if (r.game.phase !== 'voting') return;
         const order = r.game.round.playerOrder;
         r.game.round.tieBreakUsed = true;
-        // Keep `votes` for now so the tie-break popup can show the
-        // inconclusive tally; they're cleared when drawing resumes.
-        // Extend this round's turn budget by one per player and resume
-        // from the next drawer, keeping strokesDone so the counter
-        // continues (e.g. 6/6 → 7/9) instead of restarting at 1.
+        // Keep votes for the popup tally; extend by one turn/player and
+        // resume from the next drawer, keeping strokesDone (e.g. 6/6→7/9).
         r.game.round.turnsPerPlayer =
           (r.game.round.turnsPerPlayer || r.game.config.turnsPerPlayer) + 1;
         if (order.length > 0) {
@@ -614,13 +557,11 @@ function RoomInner({
     let revealed: {
       keywordDeck: string;
       keywordIndex: number;
+      liarKeywordIndex: number;
       liarId: string;
     } | null = null;
-    // Secure mode: the document still hides keyword + liar during
-    // voting, so fetch the answer to publish it. A failure keeps the
-    // round in voting (and shows an error) rather than revealing an
-    // empty liar. In the dev fallback the secret is already in the
-    // document, so the call is skipped.
+    // Secure mode: fetch the hidden keyword + liar to publish (skipped in
+    // the dev fallback, where the secret is already in the doc).
     if (!ctx.hasSecret) {
       if (!ctx.roundId || !myActorID) return;
       try {
@@ -633,20 +574,17 @@ function RoomInner({
     update((r) => {
       if (r.game.phase !== 'voting') return;
       if (revealed) {
-        // The keyword text is never stored — every client localizes it
-        // from deck + index in its OWN language. Only deck/index/liar
-        // are published at reveal.
+        // Keyword text is never stored; clients localize from deck+index.
         r.game.round.liarId = revealed.liarId;
         r.game.round.keywordDeck = revealed.keywordDeck;
         r.game.round.keywordIndex = revealed.keywordIndex;
+        r.game.round.liarKeywordIndex = revealed.liarKeywordIndex;
       }
       r.game.phase = 'reveal';
     });
   }, [update, room, myActorID]);
 
-  // 30s voting cap (keyed on the round, so casting a vote doesn't
-  // reset it). Host owns the write; the host always exists via the
-  // election effect.
+  // Voting cap, keyed on the round so a vote doesn't reset it. Host owns it.
   useEffect(() => {
     if (loading || error) return;
     if (phase !== 'voting' || paused) return;
@@ -660,14 +598,12 @@ function RoomInner({
     if (loading || error) return;
     if (!votingAllIn || paused) return;
     if (!(myActorID && myActorID === hostId)) return;
-    // Deferred so the (now async) reveal — which may setState on error
-    // — doesn't run synchronously inside the effect body.
+    // Deferred: the async reveal may setState.
     const id = setTimeout(() => resolveVoting(), 0);
     return () => clearTimeout(id);
   }, [loading, error, votingAllIn, paused, myActorID, hostId, resolveVoting]);
 
-  // Reveal auto-advances to the liar's guess after a short hold — there
-  // is no manual "continue" button. Host owns the write.
+  // Reveal auto-advances to guessing after a short hold. Host owns it.
   useEffect(() => {
     if (loading || error) return;
     if (phase !== 'reveal' || paused) return;
@@ -680,9 +616,8 @@ function RoomInner({
     return () => clearTimeout(id);
   }, [loading, error, phase, paused, roundIndex, myActorID, hostId, update]);
 
-  // Tie-break popup auto-resumes drawing after a short hold. Host owns
-  // the write; `turnStartedAt` is set HERE (not when the popup opened) so
-  // the drawer gets a full turn after the countdown, not minus the hold.
+  // Tie-break popup auto-resumes drawing after a hold. turnStartedAt is
+  // set HERE so the drawer gets a full turn, not minus the hold.
   useEffect(() => {
     if (loading || error) return;
     if (phase !== 'tiebreak' || paused) return;
@@ -690,24 +625,22 @@ function RoomInner({
     const id = setTimeout(() => {
       update((r) => {
         if (r.game.phase !== 'tiebreak') return;
-        // Clear the (shown-during-popup) votes now that drawing resumes.
         r.game.round.votes = {};
-        r.game.round.turnStartedAt = Date.now();
+        // One-device: park the turn pending (0) for the host handoff.
+        r.game.round.turnStartedAt =
+          r.game.config.drawMode === 'host' ? 0 : Date.now();
         r.game.phase = 'drawing';
       });
     }, TIEBREAK_TIME_MS);
     return () => clearTimeout(id);
   }, [loading, error, phase, paused, roundIndex, myActorID, hostId, update]);
 
-  // Guessing: if the liar doesn't submit within 30s, auto-resolve with
-  // no answer (wrong). The liar owns the write; the host covers a
-  // liar who has left. Gate kept in a ref so presence churn doesn't
-  // reset the countdown.
+  // Guessing: if the liar doesn't submit in time, auto-resolve as wrong.
+  // Liar owns it, host covers a departed liar.
   const submitGuessTimeout = useCallback(() => {
     update((r) => {
       if (r.game.phase !== 'guessing') return;
       const { accusedId, tied } = tallyVotes(r.game.round.votes);
-      // A tie = no single clear accusation, so the liar escapes.
       const caught = !tied && accusedId === r.game.round.liarId;
       r.game.round.liarGuess = '';
       r.game.round.guessCorrect = false;
@@ -757,21 +690,16 @@ function RoomInner({
       </div>
     );
   }
-  // Joining an existing room: until we confirm someone else is here, show
-  // a neutral "joining…" screen — never the waiting room — so a bad code
-  // bounces straight back to the lobby without flashing the room. Same
-  // for an over-capacity joiner that's about to bounce as "room full".
+  // Neutral "joining…" screen so a bad code never flashes the room.
   if (!confirmed || overCapacity) {
     return <div className="room__status">{t.room.connecting(room)}</div>;
   }
 
   const uniquePresences = dedupeByUid(presences);
 
-  // Reconstruct any known player who isn't currently present from the
-  // document (roster name + assigned color), so a momentary presence
-  // drop never blanks their name ("???") or hides their profile. Used
-  // for *display only* — liveness decisions (election, turn order,
-  // drawer-present) stay on the live `uniquePresences`.
+  // Reconstruct known-but-absent players from the doc (roster + color) so
+  // a presence blip never blanks a name. Display only — liveness uses the
+  // live `uniquePresences`.
   const liveUids = new Set(uniquePresences.map((p) => p.presence.uid));
   const roster = root.roster ?? {};
   const knownUids =
@@ -794,8 +722,7 @@ function RoomInner({
       }));
   const displayPresences = [...uniquePresences, ...ghostPresences];
 
-  // Reject a duplicate name. Both clashing clients see each other; the
-  // one with the larger uid bounces, so exactly one of them does.
+  // Reject a duplicate name; the larger-uid client bounces (exactly one).
   const nameClash =
     !!myActorID &&
     nameIsTaken(
@@ -822,12 +749,9 @@ function RoomInner({
     myActorID === root.game.round.liarId &&
     root.game.phase === 'guessing';
 
-  // Side profiles: the round's players (or everyone in the lobby),
-  // capped at 8. Filled left, right, left, right… so the columns
-  // grow evenly.
-  // Profiles list only the *currently present* players (live, not the
-  // ghost-resolved set) so someone leaving disappears from everyone's
-  // panel right away.
+  // Side profiles: the round's players (or lobby members), present-only so
+  // a leaver disappears immediately, capped at 8. One-device mode leaves
+  // the host out (it's the shared board, not a player).
   const order = root.game.round.playerOrder;
   const profileSource = order.length
     ? order
@@ -835,35 +759,48 @@ function RoomInner({
         .filter(
           (p): p is { clientID: string; presence: CanvasPresence } => !!p,
         )
-    : uniquePresences.filter((p) => !p.presence.spectator);
+    : uniquePresences.filter(
+        (p) =>
+          !p.presence.spectator &&
+          !(drawMode === 'host' && p.presence.uid === hostId),
+      );
   const profiles = profileSource.slice(0, 8);
   const showScores = root.game.phase !== 'lobby';
 
   const drawingUid = phase === 'drawing' && drawerId ? drawerId : null;
   const hostUid = root.game.hostId;
+  // Lobby host hand-off by tapping a profile (each-device mode only).
+  const canTransferHost =
+    phase === 'lobby' && myActorID === hostUid && drawMode !== 'host';
 
   const renderProfile = (presence: CanvasPresence) => {
     const uid = presence.uid;
     const active = highlightId === uid;
     const isDrawing = uid === drawingUid;
     const isRoomHost = uid === hostUid;
+    const offersTransfer = canTransferHost && uid !== hostUid;
     const cls =
       'profile' +
       (active ? ' profile--active' : '') +
-      (isDrawing ? ' profile--drawing' : '');
+      (isDrawing ? ' profile--drawing' : '') +
+      (offersTransfer ? ' profile--transfer' : '');
     return (
       <button
         key={uid}
         className={cls}
         style={{ borderColor: presence.color }}
-        onClick={() => setHighlightId((cur) => (cur === uid ? null : uid))}
+        onClick={() =>
+          offersTransfer
+            ? setTransferUid(uid)
+            : setHighlightId((cur) => (cur === uid ? null : uid))
+        }
         aria-pressed={active}
       >
         <span
           className="profile__dot"
           style={{ background: presence.color }}
         />
-        {isRoomHost && (
+        {isRoomHost && phase === 'lobby' && (
           <span className="profile__host" aria-label="host">
             👑
           </span>
@@ -886,10 +823,8 @@ function RoomInner({
     );
   };
 
-  // When the last present player leaves, wipe the room so the next
-  // visitor to this code gets a clean lobby (the React SDK doesn't
-  // expose true document removal). A momentarily-backgrounded peer may
-  // be uncounted — acceptable for real multi-device play.
+  // Last player out wipes the room (no true doc removal in the SDK) so
+  // the next visitor gets a clean lobby.
   const handleLeave = () => {
     if (uniquePresences.length <= 1) {
       update((r) => {
@@ -932,22 +867,25 @@ function RoomInner({
           >
             ?
           </button>
-          <select
-            className="room__lang"
-            value={locale.code}
-            onChange={(e) => setLocaleCode(e.target.value)}
-            aria-label="Language"
-          >
-            {LOCALE_LIST.map((l) => (
-              <option key={l.code} value={l.code}>
-                🌐 {l.name}
-              </option>
-            ))}
-          </select>
-          {/* Dock toggle sits to the LEFT of the open/close toggle, so the
-              open/close button stays anchored next to "Leave" and doesn't
-              shift when the dock button appears — you can open then close
-              chat at the same pointer position. */}
+          <span className="langSelect">
+            <span className="langSelect__globe" aria-hidden="true">
+              🌐
+            </span>
+            <select
+              className="room__lang langSelect__field"
+              value={locale.code}
+              onChange={(e) => setLocaleCode(e.target.value)}
+              aria-label="Language"
+            >
+              {LOCALE_LIST.map((l) => (
+                <option key={l.code} value={l.code}>
+                  {l.name}
+                </option>
+              ))}
+            </select>
+          </span>
+          {/* Dock toggle left of the open/close toggle so the latter stays
+              anchored — open then close chat at the same pointer spot. */}
           {chatOpen && (
             <button
               className="room__chatDock"
@@ -1000,6 +938,7 @@ function RoomInner({
               serverRole={serverRole}
               docHasSecret={docHasSecret}
               roundId={roundId}
+              onRequestTransferHost={setTransferUid}
             />
             {paused && (
               <div className="pauseOverlay">
@@ -1024,8 +963,50 @@ function RoomInner({
 
       {howToOpen && <HowToModal onClose={() => setHowToOpen(false)} />}
 
-      {/* Transient chat / join-leave toasts for players without the panel
-          open (and shown even when it is). */}
+      {transferUid && (
+        <div
+          className="howto__backdrop"
+          onClick={() => setTransferUid(null)}
+          role="dialog"
+          aria-modal="true"
+          aria-label={t.inRoomLobby.makeHost}
+        >
+          <div
+            className="howto__card lobbyIn__helpCard lobbyIn__transferCard"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 className="howto__title">
+              {t.inRoomLobby.transferHostQ(
+                uniquePresences.find((p) => p.presence.uid === transferUid)
+                  ?.presence.name ?? '',
+              )}
+            </h2>
+            <div className="lobbyIn__transferBtns">
+              <button
+                className="lobbyIn__transferCancel"
+                onClick={() => setTransferUid(null)}
+              >
+                {t.inRoomLobby.cancel}
+              </button>
+              <button
+                className="lobbyIn__start lobbyIn__transferConfirm"
+                onClick={() => {
+                  const uid = transferUid;
+                  setTransferUid(null);
+                  update((r) => {
+                    r.game.hostId = uid;
+                  });
+                }}
+                autoFocus
+              >
+                {t.inRoomLobby.makeHost}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Transient chat / join-leave toasts (shown even with panel open). */}
       <ChatToasts myActorID={myActorID} presences={displayPresences} />
     </div>
   );
@@ -1044,11 +1025,9 @@ export default function Room({
   onValidated = () => {},
 }: Props) {
   const myColor = useMemo(() => randomPlayerColor(), []);
-  // Stable per-tab identity; survives reload and reconnect.
   const myUid = useMemo(() => getSessionUid(), []);
-  // Chosen on the join screen (persisted per tab so a reload keeps it).
   const startSpectator = useMemo(() => getSessionSpectator(), []);
-  // When this tab joined, for the 8-player cap ordering (computed once).
+  // Join time, for the 8-player cap ordering.
   const joinedAt = useMemo(() => nowMs(), []);
 
   if (!API_KEY) {

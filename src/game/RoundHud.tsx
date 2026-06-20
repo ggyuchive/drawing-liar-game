@@ -1,9 +1,9 @@
-import { keywordAt, useLocale, useT } from '../i18n';
+import { deckName, keywordAt, useLocale, useT } from '../i18n';
 import type { CanvasPresence, GameConfig, Round } from '../types';
 
-// The keyword + liar role come from the server (per-client), NOT the
-// document — during drawing the document withholds them so the liar
-// can't read the keyword. `role` is null while that fetch is in flight.
+// Role + keyword come from the server (per-client), NOT the doc — the
+// doc withholds them so the liar can't read the keyword. null while the
+// fetch is in flight.
 export type HudRole = {
   isLiar: boolean;
   keywordDeck: string;
@@ -20,12 +20,12 @@ type Props = {
 export default function RoundHud({ round, config, role, presences }: Props) {
   const t = useT().hud;
   const { locale } = useLocale();
-  // Show the keyword in the viewer's own language (deck + index are
-  // parallel across languages).
   const shownKeyword =
     role && !role.isLiar && role.keywordDeck
       ? keywordAt(locale.code, role.keywordDeck, role.keywordIndex)
       : '';
+  const category =
+    role && role.keywordDeck ? deckName(locale.code, role.keywordDeck) : '';
   const drawerId =
     round.playerOrder[round.turnIndex % round.playerOrder.length] ?? '';
   const drawerName =
@@ -45,12 +45,18 @@ export default function RoundHud({ round, config, role, presences }: Props) {
         ) : role.isLiar ? (
           <>
             <span className="hud__label">{t.yourRole}</span>
-            <strong className="hud__liar">{t.youAreLiar}</strong>
+            <strong className="hud__liar">
+              {t.youAreLiar}
+              {category && ` (${t.category}: ${category})`}
+            </strong>
           </>
         ) : (
           <>
             <span className="hud__label">{t.keyword}</span>
-            <strong className="hud__keyword">{shownKeyword}</strong>
+            <strong className="hud__keyword">
+              {shownKeyword}
+              {category && ` (${t.category}: ${category})`}
+            </strong>
           </>
         )}
       </div>

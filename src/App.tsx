@@ -8,9 +8,12 @@ import './board.css';
 type RouteState = {
   room: string | null;
   name: string;
-  // True when we entered by JOINING/spectating (or via a shared link), so
-  // the room must already exist; false when we just CREATED a new room.
+  // Joined/shared-link → room must already exist; created → false.
   mustExist: boolean;
+  // True once the name is confirmed in the lobby. A shared #room= link
+  // starts false so we route through the lobby to pick a nickname instead
+  // of joining under a cached one.
+  entered: boolean;
 };
 
 function readHash(): { room: string | null } {
@@ -30,9 +33,8 @@ function writeHash(room: string | null) {
 
 const NAME_KEY = 'drawing-liar-game.name';
 
-// The active name is per-tab (sessionStorage), so two users testing in
-// tabs of one browser don't clobber each other and a reload keeps the
-// right name. localStorage is only a prefill default for a fresh tab.
+// Active name is per-tab (sessionStorage) so tabs don't clobber each
+// other; localStorage is only a prefill default for a fresh tab.
 function readName(): string {
   try {
     return sessionStorage.getItem(NAME_KEY) ?? localStorage.getItem(NAME_KEY) ?? '';
@@ -50,9 +52,8 @@ function writeName(name: string) {
   }
 }
 
-// Rooms we've already validly entered this tab, so a reload of our own
-// room (even a solo one we just created) doesn't get re-checked and
-// bounced. Cleared when we leave.
+// Rooms validly entered this tab, so a reload of our own room isn't
+// re-checked and bounced. Cleared on leave.
 const ENTERED_KEY = 'drawing-liar-game.enteredRoom';
 function markEntered(room: string) {
   try {
@@ -75,9 +76,9 @@ export default function App() {
     return {
       room,
       name: readName(),
-      // A room arriving from the URL must already exist — UNLESS it's one
-      // we already entered in this tab (a reload of our own room).
+      // A URL room must exist, unless it's a reload of our own room.
       mustExist: !!room && !wasEntered(room),
+      entered: !!room && wasEntered(room),
     };
   });
   // Transient join error, shown on the lobby ("not found" / "room full").
@@ -86,29 +87,31 @@ export default function App() {
   useEffect(() => {
     const onHashChange = () => {
       const room = readHash().room;
-      setRoute((r) => ({ ...r, room, mustExist: !!room && !wasEntered(room) }));
+      setRoute((r) => ({
+        ...r,
+        room,
+        mustExist: !!room && !wasEntered(room),
+        entered: !!room && wasEntered(room),
+      }));
     };
     window.addEventListener('hashchange', onHashChange);
     return () => window.removeEventListener('hashchange', onHashChange);
   }, []);
 
-  // From the lobby: `mustExist` is true for Join/Spectate, false for
-  // Create (which intentionally opens a brand-new room).
   const handleEnter = useCallback(
     (name: string, room: string, mustExist: boolean) => {
       writeName(name);
       writeHash(room);
       setJoinError(null);
-      // A freshly created room is valid by definition — remember it so a
-      // reload while still alone doesn't bounce us.
+      // A created room is valid by definition — remember it so a reload
+      // while still alone doesn't bounce us.
       if (!mustExist) markEntered(room);
-      setRoute({ room, name, mustExist });
+      setRoute({ room, name, mustExist, entered: true });
     },
     [],
   );
 
-  // Called once the room is confirmed real (another player is present, or
-  // we created it), so reloads skip the existence check.
+  // Confirmed real (a peer is present) → reloads skip the existence check.
   const handleValidated = useCallback((room: string) => {
     markEntered(room);
   }, []);
@@ -123,12 +126,14 @@ export default function App() {
       writeHash(null);
       if (opts?.full) setJoinError('full');
       else if (opts?.notFound) setJoinError('notFound');
-      setRoute((r) => ({ ...r, room: null, mustExist: false }));
+      setRoute((r) => ({ ...r, room: null, mustExist: false, entered: false }));
     },
     [],
   );
 
-  if (!route.room || !route.name) {
+  // Enter only after the name is confirmed (or re-entering our own room);
+  // a bare #room= link still stops at the lobby to pick a nickname.
+  if (!route.room || !route.name || !route.entered) {
     return (
       <Lobby
         initialName={route.name}

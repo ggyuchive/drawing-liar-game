@@ -27,8 +27,8 @@ import {
   ROUNDEND_TIME_MS,
   initialGame,
 } from '../types';
-import type { CanvasPresence, Game, GameConfig } from '../types';
-import { PLAYER_COLORS } from '../util';
+import type { CanvasPresence, Game, GameConfig, Round } from '../types';
+import { PLAYER_COLORS, nowMs } from '../util';
 import type { DocRoot } from '../Room';
 
 type Presences = Array<{ clientID: string; presence: CanvasPresence }>;
@@ -39,6 +39,43 @@ type ServerRole = {
   keywordDeck: string;
   keywordIndex: number;
 } | null;
+
+// Optional only in the insecure DEV fallback (see secrets.ts).
+type Assignment =
+  | { liarId: string; deck: string; keywordIndex: number; liarKeywordIndex: number }
+  | undefined;
+
+// Build a fresh round, shared by the first and each next round.
+function freshRound(
+  index: number,
+  roundId: string,
+  assigned: Assignment,
+  order: string[],
+  config: GameConfig,
+): Round {
+  return {
+    index,
+    roundId,
+    // deck/index/liar stay empty in secure mode, set by the dev fallback.
+    keyword: '',
+    keywordDeck: assigned ? assigned.deck : '',
+    keywordIndex: assigned ? assigned.keywordIndex : -1,
+    liarKeywordIndex: assigned ? assigned.liarKeywordIndex : -1,
+    liarId: assigned ? assigned.liarId : '',
+    playerOrder: order,
+    turnIndex: 0,
+    turnsPerPlayer: config.turnsPerPlayer,
+    strokesDone: 0,
+    votes: {},
+    liarGuess: '',
+    guessCorrect: false,
+    wasCaught: false,
+    tieBreakUsed: false,
+    brushBudgetPx: config.brushBudgetPx,
+    brushUsedPx: 0,
+    turnStartedAt: nowMs(),
+  };
+}
 
 type Props = {
   myActorID: string;
@@ -51,14 +88,13 @@ type Props = {
   serverRole: ServerRole;
   docHasSecret: boolean;
   roundId: string;
+  onRequestTransferHost: (uid: string) => void;
 };
 
 /**
- * `RoomPhase` renders the main play area for the current game phase
- * (lobby / drawing / voting / reveal / guessing / round-end / finished)
- * and owns the host's phase-transition handlers. Split out of `Room` so
- * neither file grows unwieldy; it reads the document via `useDocument`
- * (it runs under the same `DocumentProvider`).
+ * Renders the play area for the current phase and owns the host's
+ * phase-transition handlers. Split out of `Room`; reads the document via
+ * `useDocument` under the same `DocumentProvider`.
  */
 export default function RoomPhase({
   myActorID,
@@ -71,6 +107,7 @@ export default function RoomPhase({
   serverRole,
   docHasSecret,
   roundId,
+  onRequestTransferHost,
 }: Props) {
   const { root, update } = useDocument<DocRoot, CanvasPresence>();
   const t = useT();
@@ -80,8 +117,7 @@ export default function RoomPhase({
   const myColor =
     uniquePresences.find((p) => p.presence.uid === myActorID)?.presence.color ??
     '#1f2937';
-  // A player who joined mid-round isn't in playerOrder. They watch
-  // until the next round snapshots presences into a fresh order.
+  // Joined mid-round (not in playerOrder) → watch until next round.
   const spectating = isSpectator(
     root.game.phase,
     root.game.round.playerOrder,
@@ -99,10 +135,18 @@ export default function RoomPhase({
       if (next.keywordDeck !== undefined) {
         r.game.config.keywordDeck = next.keywordDeck;
       }
+      if (next.gameMode !== undefined) {
+        r.game.config.gameMode = next.gameMode;
+      }
+      if (next.drawMode !== undefined) {
+        r.game.config.drawMode = next.drawMode;
+      }
+      if (next.krCategories !== undefined) {
+        r.game.config.krCategories = next.krCategories;
+      }
     });
   };
-  // The finished drawing stays visible (read-only) beside the
-  // judging screens, with the active local highlight applied.
+  // Finished drawing stays visible (read-only) beside the judging screens.
   const withBoard = (node: ReactNode) => (
     <div className="phase phase--judge">
       <BoardView strokes={root.strokes} highlightId={highlightId} />
@@ -111,19 +155,24 @@ export default function RoomPhase({
   );
   const onStart = async () => {
     if (!isHost || !myActorID) return;
-    // First 8 non-spectators by join order play; the rest watch.
+    // One-device mode excludes the host (it's the shared board, never a
+    // player or the liar).
+    const hostMode = root.game.config.drawMode === 'host';
     const order = pickPlayerOrder(
       uniquePresences
         .filter((p) => !p.presence.spectator)
+        .filter((p) => !(hostMode && p.presence.uid === root.game.hostId))
         .map((p) => p.presence.uid),
       shuffle,
     );
     if (order.length < 3) return;
-    // The host sends EVERY category; the server picks the deck + index
-    // (and the liar) across all of them — players don't choose a
-    // category, and the choice stays hidden from the liar. (`assignment`
-    // is the insecure DEV fallback when the server is unreachable.)
-    const decks = deckSizes(locale.code);
+    // Server picks deck+index+liar across all sent categories (hidden from
+    // the liar); KR-only decks join the pool only when the host opts in.
+    const krCategories = root.game.config.krCategories === true;
+    const decks = deckSizes(locale.code)
+      .filter((d) => krCategories || !d.krOnly)
+      .map((d) => ({ deck: d.deck, size: d.size }));
+    const mode = root.game.config.gameMode === 'fool' ? 'fool' : 'classic';
     let result;
     try {
       result = await startRound({
@@ -131,6 +180,7 @@ export default function RoomPhase({
         uid: myActorID,
         decks: [...decks],
         playerUids: order,
+        mode,
       });
     } catch (e) {
       console.error('round start failed', e);
@@ -140,44 +190,21 @@ export default function RoomPhase({
     setRoundError(false);
     const assigned = result.assignment;
     update((r) => {
-      // Heal config fields that an older document may be missing,
-      // so the new game starts with a real timer and brush budget.
+      // Heal config fields an older document may be missing.
       if (!(r.game.config.turnTimeMs > 0)) {
         r.game.config.turnTimeMs = DEFAULT_TURN_TIME_MS;
       }
       if (!(r.game.config.brushBudgetPx > 0)) {
         r.game.config.brushBudgetPx = DEFAULT_BRUSH_BUDGET_PX;
       }
-      r.game.round = {
-        index: 1,
-        roundId: result.roundId,
-        // The keyword text is never stored; each client localizes it
-        // from deck + index in its own language. deck/index/liar stay
-        // empty in secure mode and are written by the dev fallback so
-        // server-less peers can play.
-        keyword: '',
-        keywordDeck: assigned ? assigned.deck : '',
-        keywordIndex: assigned ? assigned.keywordIndex : -1,
-        liarId: assigned ? assigned.liarId : '',
-        playerOrder: order,
-        turnIndex: 0,
-        turnsPerPlayer: r.game.config.turnsPerPlayer,
-        strokesDone: 0,
-        votes: {},
-        liarGuess: '',
-        guessCorrect: false,
-        wasCaught: false,
-        tieBreakUsed: false,
-        brushBudgetPx: r.game.config.brushBudgetPx,
-        brushUsedPx: 0,
-        turnStartedAt: Date.now(),
-      };
+      if (r.game.config.gameMode !== 'fool') r.game.config.gameMode = 'classic';
+      if (r.game.config.drawMode !== 'host') r.game.config.drawMode = 'each';
+      r.game.round = freshRound(1, result.roundId, assigned, order, r.game.config);
+      // One-device: first turn pending until the host taps "start turn".
+      if (hostMode) r.game.round.turnStartedAt = 0;
       while (r.strokes.length > 0) r.strokes.delete?.(0);
       r.game.scores = Object.fromEntries(order.map((id) => [id, 0]));
-      // Use exactly N colors for N players, always the N most "major"
-      // ones from the front of the palette (3 players → red/green/blue),
-      // shuffled so which player gets which is random but the set is
-      // deterministic.
+      // First N palette colors, shuffled so who gets which is random.
       r.game.colors = assignColors(
         order,
         shuffle(PLAYER_COLORS.slice(0, order.length)),
@@ -186,19 +213,23 @@ export default function RoomPhase({
     });
   };
 
-  // Start the next round (host only). Lifted out of the roundEnd case so
-  // the auto-advance timer can call the exact same logic the old button
-  // used. Snapshots present non-spectators into a fresh player order.
+  // Start the next round (host only) with a fresh player order.
   const startNextRound = async () => {
     if (!isHost || !myActorID) return;
+    const hostMode = root.game.config.drawMode === 'host';
     const order = pickPlayerOrder(
       uniquePresences
         .filter((p) => !p.presence.spectator)
+        .filter((p) => !(hostMode && p.presence.uid === root.game.hostId))
         .map((p) => p.presence.uid),
       shuffle,
     );
     if (order.length < 3) return;
-    const decks = deckSizes(locale.code);
+    const krCategories = root.game.config.krCategories === true;
+    const decks = deckSizes(locale.code)
+      .filter((d) => krCategories || !d.krOnly)
+      .map((d) => ({ deck: d.deck, size: d.size }));
+    const mode = root.game.config.gameMode === 'fool' ? 'fool' : 'classic';
     let result;
     try {
       result = await startRound({
@@ -206,6 +237,7 @@ export default function RoomPhase({
         uid: myActorID,
         decks: [...decks],
         playerUids: order,
+        mode,
       });
     } catch (e) {
       console.error('next round start failed', e);
@@ -216,35 +248,20 @@ export default function RoomPhase({
     const assigned = result.assignment;
     update((r) => {
       const nextIndex = r.game.round.index + 1;
-      r.game.round = {
-        index: nextIndex,
-        roundId: result.roundId,
-        keyword: '',
-        keywordDeck: assigned ? assigned.deck : '',
-        keywordIndex: assigned ? assigned.keywordIndex : -1,
-        liarId: assigned ? assigned.liarId : '',
-        playerOrder: order,
-        turnIndex: 0,
-        turnsPerPlayer: r.game.config.turnsPerPlayer,
-        strokesDone: 0,
-        votes: {},
-        liarGuess: '',
-        guessCorrect: false,
-        wasCaught: false,
-        tieBreakUsed: false,
-        brushBudgetPx: r.game.config.brushBudgetPx,
-        brushUsedPx: 0,
-        turnStartedAt: Date.now(),
-      };
+      r.game.round = freshRound(
+        nextIndex,
+        result.roundId,
+        assigned,
+        order,
+        r.game.config,
+      );
+      if (hostMode) r.game.round.turnStartedAt = 0;
       while (r.strokes.length > 0) r.strokes.delete?.(0);
       for (const id of order) {
-        // Read access (not `in`, which is unreliable on the Yorkie proxy
-        // and was resetting every score to 0 each round). Only seed
-        // genuinely-new players at 0.
+        // Read access, not `in` (unreliable on the Yorkie proxy — it was
+        // resetting scores). Only seed genuinely-new players.
         if (r.game.scores[id] === undefined) r.game.scores[id] = 0;
       }
-      // Keep existing players' colors; give any newcomer an unused one so
-      // the per-game assignment stays stable.
       r.game.colors = fillMissingColors(order, { ...r.game.colors }, PLAYER_COLORS);
       r.game.phase = 'drawing';
     });
@@ -257,11 +274,9 @@ export default function RoomPhase({
     });
   };
 
-  // Auto-advance out of roundEnd after a short hold — no manual "next"
-  // button. Host owns the write; the last round goes to the final
-  // ranking, every other round starts the next one. The latest handlers
-  // are kept in a ref so the timer effect can depend only on the phase +
-  // round (uniquePresences changes every render and would reset it).
+  // Auto-advance out of roundEnd after a hold (host-owned): last round →
+  // ranking, else → next round. Handlers in a ref so the timer depends
+  // only on phase + round, not on every-render presence churn.
   const lastRound = root.game.round.index >= root.game.config.totalRounds;
   const autoAdvanceRef = useRef<() => void>(() => {});
   useEffect(() => {
@@ -285,7 +300,10 @@ export default function RoomPhase({
           isHost={isHost}
           config={root.game.config}
           presences={uniquePresences}
+          room={room}
+          hostId={root.game.hostId}
           onConfigChange={onConfigChange}
+          onRequestTransferHost={onRequestTransferHost}
           onStart={onStart}
         />
       );
@@ -300,8 +318,6 @@ export default function RoomPhase({
           }
           r.game = fresh as unknown as JSONObject<Game>;
           while (r.strokes.length > 0) r.strokes.delete?.(0);
-          // Keep the chat history across games in the same room — only
-          // the canvas + game state reset on "play again".
         });
       };
       return (
@@ -314,8 +330,7 @@ export default function RoomPhase({
       );
     }
     case 'tiebreak': {
-      // Popup over the board; a host-owned timer auto-resumes drawing
-      // (see the tie-break effect). The board stays visible behind it.
+      // Popup over the board; a host-owned timer auto-resumes drawing.
       return (
         <div className="phase phase--judge">
           <BoardView strokes={root.strokes} highlightId={highlightId} />
@@ -324,9 +339,7 @@ export default function RoomPhase({
       );
     }
     case 'reveal': {
-      // Display-only; a host-owned timer auto-advances to guessing
-      // (see the reveal effect). The accused's identity only decides
-      // the scoring branch, computed at guess-submit time.
+      // Display-only; a host-owned timer auto-advances to guessing.
       return withBoard(
         <Reveal round={root.game.round} presences={displayPresences} />,
       );
@@ -337,7 +350,6 @@ export default function RoomPhase({
         if (myActorID !== root.game.round.liarId) return;
         update((r) => {
           const { accusedId, tied } = tallyVotes(r.game.round.votes);
-          // A tie = no single clear accusation, so the liar escapes.
           const caught = !tied && accusedId === r.game.round.liarId;
           r.game.round.liarGuess = guess;
           r.game.round.guessCorrect = correct;
@@ -361,7 +373,6 @@ export default function RoomPhase({
       );
     }
     case 'roundEnd': {
-      // Advancing is automatic (see the auto-advance effect above).
       return withBoard(
         <RoundEnd game={root.game} presences={displayPresences} />,
       );
@@ -402,15 +413,21 @@ export default function RoomPhase({
         if (!isMyTurn) return;
         advanceTurn();
       };
-      // Role + keyword come from the document when it carries the
-      // secret (dev fallback / post-reveal), otherwise from this
-      // client's own server fetch. null until that fetch resolves.
+      // Role + keyword from the doc when it has the secret (dev fallback),
+      // else from this client's server fetch (null until resolved). Fool
+      // mode shows the liar as a normal player with the different keyword.
       const hudRole: HudRole | null = docHasSecret
-        ? {
-            isLiar: !!myActorID && myActorID === root.game.round.liarId,
-            keywordDeck: root.game.round.keywordDeck,
-            keywordIndex: root.game.round.keywordIndex,
-          }
+        ? (() => {
+            const r = root.game.round;
+            const iAmLiar = !!myActorID && myActorID === r.liarId;
+            const foolRound = r.liarKeywordIndex >= 0;
+            return {
+              isLiar: foolRound ? false : iAmLiar,
+              keywordDeck: r.keywordDeck,
+              keywordIndex:
+                foolRound && iAmLiar ? r.liarKeywordIndex : r.keywordIndex,
+            };
+          })()
         : serverRole && serverRole.roundId === roundId
           ? {
               isLiar: serverRole.isLiar,
@@ -418,6 +435,85 @@ export default function RoomPhase({
               keywordIndex: serverRole.keywordIndex,
             }
           : null;
+
+      // One-device: the host board draws AS the current drawer and shows
+      // no role. A pending turn (turnStartedAt 0) shows the handoff overlay.
+      const hostMode = root.game.config.drawMode === 'host';
+      const isDisplay = isHost && hostMode;
+      const turnPending = hostMode && root.game.round.turnStartedAt === 0;
+      const drawerColor = root.game.colors?.[drawerId] ?? myColor;
+      const startTurn = () =>
+        update((r) => {
+          if (r.game.phase === 'drawing' && r.game.round.turnStartedAt === 0) {
+            r.game.round.turnStartedAt = Date.now();
+          }
+        });
+
+      if (isDisplay) {
+        return (
+          <div className="phase">
+            <div className="phase__gauges">
+              <BrushMeter round={root.game.round} />
+              <TurnTimer round={root.game.round} config={root.game.config} />
+            </div>
+            <div className="hostBoard">
+              <Canvas
+                strokes={root.strokes}
+                isMyTurn={!turnPending}
+                drawerName={drawerName}
+                myUid={drawerId}
+                myColor={drawerColor}
+                highlightId={highlightId}
+                onStrokeEnd={advanceTurn}
+              />
+              {turnPending && (
+                <div className="pauseOverlay">
+                  <div className="pauseOverlay__card">
+                    <span className="pauseOverlay__sub">
+                      {t.hostMode.nextUp}
+                    </span>
+                    <strong
+                      className="pauseOverlay__title"
+                      style={{ color: drawerColor }}
+                    >
+                      {drawerName}
+                    </strong>
+                    <button
+                      className="lobbyIn__start hostTurn__start"
+                      onClick={startTurn}
+                    >
+                      {t.hostMode.startTurn(drawerName)}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        );
+      }
+
+      if (hostMode) {
+        // Participant phone: watch the host board, see only your own role.
+        return (
+          <div className="phase phase--judge">
+            <BoardView strokes={root.strokes} highlightId={highlightId} />
+            <div className="phase__panel">
+              <RoundHud
+                round={root.game.round}
+                config={root.game.config}
+                role={hudRole}
+                presences={displayPresences}
+              />
+              <div className="phase__gauges">
+                <BrushMeter round={root.game.round} />
+                <TurnTimer round={root.game.round} config={root.game.config} />
+              </div>
+              <p className="hostMode__hint">{t.hostMode.drawHerePhone}</p>
+            </div>
+          </div>
+        );
+      }
+
       return (
         <div className="phase">
           {spectating && (

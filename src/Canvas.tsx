@@ -42,9 +42,8 @@ export default function Canvas({
     committed: boolean;
   } | null>(null);
 
-  // When the turn rotates away mid-stroke (e.g. the turn timer or
-  // brush quota fired the advance), drop the in-flight stroke so the
-  // drawer can't keep appending points after their turn ended.
+  // Turn rotated away mid-stroke (timer/quota fired) → drop the in-flight
+  // stroke so points can't be appended after the turn ended.
   useEffect(() => {
     if (!isMyTurn) drawingRef.current = null;
   }, [isMyTurn]);
@@ -111,9 +110,8 @@ export default function Canvas({
     if (drawingRef.current) return;
     e.currentTarget.setPointerCapture(e.pointerId);
     const point = getCanvasPoint(e);
-    // Defer creating the stroke until the pointer actually moves, so a
-    // stray click (press + release with no drag) draws nothing and
-    // doesn't end the turn.
+    // Defer creating the stroke until the pointer moves, so a stray click
+    // draws nothing and doesn't end the turn.
     drawingRef.current = {
       id: generateId(),
       start: point,
@@ -138,7 +136,7 @@ export default function Canvas({
     update((root) => {
       const round = root.game.round;
       if (wasUncommitted) {
-        // First real movement → create the stroke now (start + point).
+        // First real movement → create the stroke now.
         if (round.brushUsedPx >= round.brushBudgetPx) {
           blocked = true;
           return;

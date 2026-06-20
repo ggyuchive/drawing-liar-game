@@ -14,24 +14,25 @@ export default function RoundEnd({ game, presences }: Props) {
   const { round, scores, config } = game;
   const nameFor = (id: string) =>
     presences.find((p) => p.presence.uid === id)?.presence.name ?? '???';
-  // Reveal the keyword in the viewer's own language.
   const shownKeyword = round.keywordDeck
     ? keywordAt(locale.code, round.keywordDeck, round.keywordIndex)
     : round.keyword;
+  // Fool round: reveal the liar's different word (safe now — guess is in).
+  const liarWord =
+    round.liarKeywordIndex >= 0 && round.keywordDeck
+      ? keywordAt(locale.code, round.keywordDeck, round.liarKeywordIndex)
+      : '';
 
   const ranked = Object.entries(scores).sort((a, b) => b[1] - a[1]);
   const liarName = nameFor(round.liarId);
   const lastRound = round.index >= config.totalRounds;
 
-  // Points each player gained this round, so the board shows
-  // "previous + gained" and the running total is visibly accumulating.
   const gained = roundDeltas(
     { caught: round.wasCaught, guessed: round.guessCorrect },
     round.playerOrder,
     round.liarId,
   );
 
-  // Four cells of the 2×2 table (caught × guessed).
   let outcomeText: string;
   if (round.wasCaught) {
     outcomeText = round.guessCorrect
@@ -47,6 +48,9 @@ export default function RoundEnd({ game, presences }: Props) {
     <div className="roundEnd">
       <h2 className="roundEnd__title">{t.title(round.index, config.totalRounds)}</h2>
       <p className="roundEnd__outcome">{outcomeText}</p>
+      {liarWord && (
+        <p className="roundEnd__fool">{t.foolKeyword(liarName, liarWord)}</p>
+      )}
 
       <ul className="roundEnd__scoreboard">
         {ranked.map(([id, score]) => {

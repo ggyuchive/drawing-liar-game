@@ -1,6 +1,4 @@
 /* ---------- Lobby ---------- */
-/* Flex column so the card stays vertically centered (margin-block:auto)
-   while the footer settles at the bottom of the screen. */
 .lobby {
   min-height: 100vh;
   display: flex;
@@ -148,7 +146,6 @@
   width: 100%;
   max-width: 420px;
   box-shadow: 0 12px 32px rgba(0, 0, 0, 0.06);
-  /* Center in the leftover space; the footer keeps the bottom row. */
   margin-block: auto;
 }
 
@@ -377,10 +374,8 @@
   text-align: center;
 }
 
-/* Single row that never wraps or shrinks to fit: when the window is too
-   narrow it scrolls sideways, anchored to the left (room code first).
-   `margin-left:auto` on the right cluster pushes it to the far edge when
-   there IS room, and collapses to 0 (left-packed) when it overflows. */
+/* Single row: scrolls sideways when too narrow (room code first).
+   margin-left:auto on the right cluster collapses to 0 on overflow. */
 .room__header {
   display: flex;
   align-items: center;
@@ -424,16 +419,24 @@
 }
 
 .room__code {
+  display: inline-flex;
+  align-items: center;
+  height: 34px;
   background: var(--accent-soft);
   color: var(--accent);
-  padding: 4px 10px;
+  padding: 0 10px;
   border-radius: 6px;
   font-weight: 600;
   letter-spacing: 2px;
 }
 
-.room__copy {
-  padding: 4px 10px;
+.room__copy,
+.room__chatDock,
+.room__chatToggle {
+  display: inline-flex;
+  align-items: center;
+  height: 34px;
+  padding: 0 12px;
   font-size: 13px;
 }
 
@@ -445,6 +448,24 @@
   background: var(--bg);
   color: var(--text);
   font-size: 13px;
+}
+
+/* Globe only beside the collapsed select, not inside the dropdown. */
+.langSelect {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+.langSelect__globe {
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  line-height: 1;
+  pointer-events: none;
+}
+.langSelect__field {
+  padding-left: 30px;
 }
 
 .room__leave {
@@ -499,6 +520,40 @@
   border-radius: 50%;
 }
 
+/* The host can tap another player to hand off the crown. */
+.lobbyIn__rosterItem--btn {
+  cursor: pointer;
+}
+.lobbyIn__rosterItem--btn:hover {
+  border-color: var(--accent);
+}
+
+/* "Host" badge on the current host's chip. */
+.lobbyIn__hostBadge {
+  font-size: 11px;
+  font-weight: 700;
+  color: #fff;
+  background: var(--accent);
+  padding: 1px 7px;
+  border-radius: 999px;
+}
+
+/* Host hand-off confirm popup. */
+.lobbyIn__transferBtns {
+  display: flex;
+  gap: 10px;
+}
+.lobbyIn__transferCancel {
+  flex: 1;
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+}
+.lobbyIn__transferConfirm {
+  flex: 2;
+  width: auto;
+}
+
 .lobbyIn__hostBox {
   display: flex;
   flex-direction: column;
@@ -530,9 +585,8 @@
   color: var(--text);
 }
 
-/* Enlarge the number spinner (up/down) so it's easy to hit. */
+/* Larger spinner so it's easy to tap. */
 .lobbyIn__configCell input[type='number'] {
-  /* Reserve room so the taller spinner buttons aren't cramped. */
   padding-right: 8px;
 }
 .lobbyIn__configCell input[type='number']::-webkit-inner-spin-button {
@@ -541,6 +595,175 @@
   transform: scale(1.4);
   transform-origin: center right;
   cursor: pointer;
+}
+
+.lobbyIn__modeBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.lobbyIn__modeRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Round "?" button sitting to the LEFT of the mode label. */
+.lobbyIn__help {
+  flex: 0 0 auto;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  background: var(--bg);
+  color: var(--text-soft);
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.lobbyIn__help--on {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+.lobbyIn__modeLabel {
+  font-size: 15px;
+  color: var(--text-soft);
+}
+
+.lobbyIn__modeBtns {
+  display: inline-flex;
+  margin-left: auto;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.lobbyIn__helpCard {
+  width: min(440px, 92vw);
+}
+
+.lobbyIn__modeHelp {
+  list-style: none;
+  margin: 0;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+}
+
+.lobbyIn__modeHelp li {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.lobbyIn__modeHelp strong {
+  font-size: 13px;
+  color: var(--text);
+}
+
+.lobbyIn__modeHelp span {
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--text-soft);
+}
+
+.lobbyIn__mode {
+  border: none;
+  border-radius: 0;
+  background: var(--bg);
+  color: var(--text-soft);
+  font-size: 14px;
+  padding: 8px 14px;
+}
+
+.lobbyIn__mode--on {
+  background: var(--accent);
+  color: #fff;
+}
+
+/* Read-only settings shown to non-host players (synced live). */
+.lobbyIn__settings {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.lobbyIn__settingsGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin: 0;
+}
+
+.lobbyIn__setting {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  text-align: center;
+}
+
+.lobbyIn__setting dt {
+  font-size: 12px;
+  color: var(--text-soft);
+}
+
+.lobbyIn__setting dd {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+/* One-device mode: QR for players to join the shared screen. */
+.lobbyIn__qr {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  padding: 24px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--bg-elev);
+}
+
+.lobbyIn__qrNote {
+  margin: 0;
+  font-size: 15px;
+  color: var(--text-soft);
+  text-align: center;
+}
+
+.lobbyIn__qrCode {
+  background: #fff;
+  padding: 16px;
+  border-radius: 14px;
+  line-height: 0;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+}
+
+/* Responsive QR: overrides the SVG's fixed width/height. */
+.lobbyIn__qrCode svg {
+  display: block;
+  width: min(320px, 64vmin);
+  height: auto;
+}
+
+.lobbyIn__qrCaption {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
 }
 
 .lobbyIn__start {
@@ -691,6 +914,12 @@
   margin: 0;
   font-size: 15px;
   color: var(--text);
+}
+
+.roundEnd__fool {
+  margin: 0;
+  font-size: 14px;
+  color: var(--text-soft);
 }
 
 .roundEnd__scoreboard {
