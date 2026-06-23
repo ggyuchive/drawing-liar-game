@@ -7,16 +7,28 @@ what it is and has to bluff. Spot the liar before they slip away.
 
 > **Play:** https://drawing-liar-game.vercel.app/
 
-<!-- Add a screenshot or GIF of a round in progress here. -->
+## Demo
+
+Multi-tab play — one shared keyword, one clueless liar:
+
+![Multi-tab play demo](docs/media/demo.gif)
+
+<!-- Autoplays + loops on GitHub. Drop the clip at docs/media/demo.gif and
+     it shows up here automatically — no edits needed. See docs/media/. -->
+<!-- Prefer higher quality with click-to-play instead of autoplay? Swap the
+     line above for:
+     <video src="docs/media/demo.mp4" controls muted playsinline width="100%"></video> -->
 
 ## How to play
 
 - One player **creates a room** and shares the link (the room code
   lives in the URL, so the URL *is* the invite).
-- Everyone else **joins** with the link or the 8-character code.
+- Everyone else **joins** with the link or the 5-character code.
   You need **3+ players** to start.
 - Each round, everyone sees a **keyword** — except the randomly
-  chosen **liar**, who only knows they're the liar.
+  chosen **liar**, who gets only the **category**, not the word, and
+  has to bluff. (In **Fool** mode the liar doesn't even know they're
+  the liar: they get a *different* word from the same category.)
 - Players take turns **drawing** on the shared canvas. Each turn has a
   **brush budget** and a **10-second timer**; whichever runs out first
   ends your turn.

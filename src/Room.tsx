@@ -21,6 +21,7 @@ import { fetchRole, revealRound } from './game/secrets';
 import { pingRoom } from './rooms';
 import { applyScores, tallyVotes } from './game/state';
 import {
+  countPresentPlayers,
   electHost,
   nameIsTaken,
   resolveTurnAdvance,
@@ -388,16 +389,20 @@ function RoomInner({
       : '';
   const drawerPresent = presences.some((p) => p.presence.uid === drawerId);
 
-  // Pause when fewer than 3 players remain: freeze the timer + overlay.
-  const livePlayerCount = roundOrder.filter((uid) =>
-    presences.some((p) => p.presence.uid === uid),
-  ).length;
+  // Pause when fewer than 3 players remain. Count present players, not the
+  // round's roster: a rejoiner gets a fresh uid not in playerOrder, so
+  // keying on the roster would hang forever on a departed member.
+  const presentPlayerCount = countPresentPlayers(
+    presences.map((p) => p.presence),
+    drawMode === 'host',
+    hostId,
+  );
   const paused =
     ready &&
     phase !== 'lobby' &&
     phase !== 'finished' &&
     roundOrder.length > 0 &&
-    livePlayerCount <= 2;
+    presentPlayerCount <= 2;
 
   const advanceTurnRef = useRef(advanceTurn);
   const shouldAdvanceRef = useRef(false);

@@ -33,10 +33,10 @@ degrade an element to win back space.
 
 The play area — keyword HUD → gauges → canvas — must be fully visible at
 every width without a vertical scroll, and the canvas must always hold its
-3:2 ratio.
+1:1 (square) ratio.
 
-- The canvas **fits** the space it's given (`min(100cqh, 100cqw·2/3)` with
-  `aspect-ratio`), it is never sized by guessing viewport fractions.
+- The canvas **fits** the space it's given (`min(100cqh, 100cqw)` with
+  `aspect-ratio: 1 / 1`), it is never sized by guessing viewport fractions.
 - Exactly one axis is pinned and the other follows the ratio, so the ratio
   can never be violated. Two competing max-constraints on a replaced element
   is the bug, not the fix.

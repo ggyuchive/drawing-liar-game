@@ -106,6 +106,23 @@ export function isSpectator(
   );
 }
 
+// Present non-spectator players, deduped by uid; drives the "too few
+// players" pause. Counts the room, not the round's playerOrder, so a
+// rejoiner with a fresh uid still counts. One-device mode excludes the
+// host device (it's the shared board, not a player).
+export function countPresentPlayers(
+  presences: ReadonlyArray<{ uid: string; spectator: boolean }>,
+  hostMode: boolean,
+  hostId: string,
+): number {
+  return new Set(
+    presences
+      .filter((p) => !p.spectator)
+      .filter((p) => !(hostMode && p.uid === hostId))
+      .map((p) => p.uid),
+  ).size;
+}
+
 // My name clashes with a present player who has a smaller id — so of two
 // clashing clients, exactly one (the larger id) is told it's taken.
 export function nameIsTaken(

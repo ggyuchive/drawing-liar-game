@@ -63,7 +63,7 @@ Landed in
 in their language, and adding a third language requires editing one
 new file and zero existing ones.
 
-## Phase 3 — Quality pass *(next)*
+## Phase 3 — Quality pass *(done)*
 
 Make the game enjoyable for repeat sessions with friends, not just
 demoable. The rule changes that come with this phase are documented
@@ -179,7 +179,10 @@ each item.
 - **Themed packs.** Movies, K-Pop, board games, sports, etc.
 - **Replay / share screenshot of the final round.** A small "save
   this round" button to share the drawing + the keyword + the
-  outcome.
+  outcome. Yorkie **Revision** is the natural mechanism here — see
+  [`yorkie-schema-revision-channel.md`](yorkie-schema-revision-channel.md)
+  for the per-turn-checkpoint approach (and why replay must be
+  read-only `getRevision`, never `restoreRevision`).
 - **Better win conditions.** Per-game configurable scoring; team
   modes; tournament brackets across multiple games.
 

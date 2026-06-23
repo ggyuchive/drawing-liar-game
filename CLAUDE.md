@@ -43,10 +43,18 @@ logic rather than a copy.
 **multi-user simulation**: it runs whole games in memory (several
 players, turn rotation, host hand-off on disconnect, the 8-player
 cap + spectators, scoring) and is the regression guard for bugs like
-"the round jumps to voting before the turns finish." Keep
-correctness-critical logic in the pure modules so it stays testable
-this way — avoid burying it inside React effects or `update()`
-bodies.
+"the round jumps to voting before the turns finish" or "the round
+hangs after a player leaves and rejoins." Keep correctness-critical
+logic in the pure modules so it stays testable this way — avoid
+burying it inside React effects or `update()` bodies.
+
+**uid churn gotcha.** Game state keys on a stable per-tab `uid`
+(sessionStorage), so a leave+rejoin produces a *new* uid that is NOT
+in the round's `playerOrder`. Anything that must survive a rejoin must
+count *present players*, not the round roster — e.g. the "too few
+players" pause (`countPresentPlayers`): keying it on `playerOrder`
+froze the game forever on a departed member. Treat a departed uid as
+a ghost the round limps past, then re-seats everyone next round.
 
 ## Commit Message Restrictions
 

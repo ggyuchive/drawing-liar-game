@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   assignColors,
+  countPresentPlayers,
   electHost,
   fillMissingColors,
   isSpectator,
@@ -168,6 +169,51 @@ describe('reconnect / reload identity stability', () => {
       'u-alice',
       'u-bob',
     ]);
+  });
+});
+
+describe('pause / heal when a player leaves and rejoins', () => {
+  // Regression: a player who left and rejoined gets a fresh uid not in
+  // playerOrder. Pausing on the roster saw 2 live members and hung; the
+  // pause must count present players so the rejoiner keeps the round alive.
+  const order = ['u-a', 'u-b', 'u-byeonggyu-1']; // 3-player round in progress
+
+  it('does NOT pause when a leaver rejoined under a fresh uid', () => {
+    // u-byeonggyu-1 (the drawer) left; the same human rejoined as u-...-2.
+    // Only 2 of the 3 roster uids are present, but 3 real players are.
+    const present = [
+      { uid: 'u-a', spectator: false },
+      { uid: 'u-b', spectator: false },
+      { uid: 'u-byeonggyu-2', spectator: false }, // rejoined, new uid
+    ];
+    const rosterPresent = order.filter((uid) =>
+      present.some((p) => p.uid === uid),
+    ).length;
+    expect(rosterPresent).toBe(2); // the old, buggy count would pause here
+
+    expect(countPresentPlayers(present, false, '')).toBe(3); // > 2 → not paused
+  });
+
+  it('still pauses when the room genuinely drops below 3 players', () => {
+    const present = [
+      { uid: 'u-a', spectator: false },
+      { uid: 'u-b', spectator: false },
+    ];
+    expect(countPresentPlayers(present, false, '')).toBe(2); // <= 2 → paused
+  });
+
+  it('ignores spectators and (in one-device mode) the host board', () => {
+    const present = [
+      { uid: 'u-host', spectator: false },
+      { uid: 'u-a', spectator: false },
+      { uid: 'u-b', spectator: false },
+      { uid: 'u-watcher', spectator: true },
+    ];
+    // each-device: host plays, spectator excluded → 3 players.
+    expect(countPresentPlayers(present, false, 'u-host')).toBe(3);
+    // one-device: the host device is the shared board, not a player → 2,
+    // so a 2-phone one-device game correctly pauses.
+    expect(countPresentPlayers(present, true, 'u-host')).toBe(2);
   });
 });
 
